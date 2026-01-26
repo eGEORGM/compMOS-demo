@@ -1,0 +1,33 @@
+# compMOS Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-01-15
+
+## Active Technologies
+- JavaScript (ES6+) / Vue.js 2.x + Vue.js 2.x, Vuex 3.x, Vue Router 3.x, Element UI 2.x, Mock.js (005-invoice-flow-update)
+- LocalStorage (用户配置)，内存状态 (Mock 数据) (005-invoice-flow-update)
+
+- JavaScript (ES6+) / Vue.js 2.7.12 (001-settlement-automation)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+npm test && npm run lint
+
+## Code Style
+
+JavaScript (ES6+) / Vue.js 2.7.12: Follow standard conventions
+
+## Recent Changes
+- 005-invoice-flow-update: Added JavaScript (ES6+) / Vue.js 2.x + Vue.js 2.x, Vuex 3.x, Vue Router 3.x, Element UI 2.x, Mock.js
+- 003-settlement-redesign: Added JavaScript (ES6+) / Vue.js 2.7.12
+- 002-demo-prototype: Added JavaScript (ES6+) / Vue.js 2.7.12
+
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Generated files
+*.min.js
+
+# Vendor files
+vendor/
+
+# Config files (if needed)
+# webpack.config.js
+# babel.config.js

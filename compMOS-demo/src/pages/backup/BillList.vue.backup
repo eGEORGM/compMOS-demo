@@ -1,0 +1,328 @@
+<template>
+  <div class="bill-list-page">
+    <!-- 公司信息区域 -->
+    <div class="company-info">
+      <div class="company-name">{{ companyInfo.name }}</div>
+      <div class="company-id">{{ companyInfo.fullName }} ID:{{ companyInfo.id }}</div>
+    </div>
+
+    <!-- 筛选区域 -->
+    <el-card class="filter-card" :body-style="{ padding: '20px' }">
+      <!-- 日期范围 -->
+      <div class="filter-row">
+        <span class="filter-label">结算开始日范围</span>
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="-"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          format="yyyy/MM/dd"
+          value-format="yyyy-MM-dd"
+        ></el-date-picker>
+      </div>
+
+      <!-- 状态筛选 -->
+      <div class="filter-row">
+        <span class="filter-label">批次状态</span>
+        <el-checkbox-group v-model="selectedStatuses">
+          <el-checkbox :label="0">未开始对账</el-checkbox>
+          <el-checkbox :label="1">待确认</el-checkbox>
+          <el-checkbox :label="2">调账中</el-checkbox>
+          <el-checkbox :label="3">待开票</el-checkbox>
+          <el-checkbox :label="4">待付款</el-checkbox>
+          <el-checkbox :label="5">已结清</el-checkbox>
+        </el-checkbox-group>
+        <el-link type="primary" :underline="false" style="margin-left: auto">合并单据 ></el-link>
+      </div>
+
+      <!-- 搜索 -->
+      <div class="filter-row">
+        <span class="filter-label">订单号</span>
+        <el-input v-model="searchKeyword" placeholder="请输入订单号" style="width: 300px"></el-input>
+        <el-button type="primary" @click="handleSearch">查 询</el-button>
+      </div>
+    </el-card>
+
+    <!-- 表格区域 -->
+    <el-card class="table-card" :body-style="{ padding: '0' }">
+      <el-table
+        v-loading="loading"
+        :data="filteredBills"
+        stripe
+        border
+        style="width: 100%"
+        :header-cell-style="{ background: '#f5f7fa', color: '#303133', fontWeight: '600' }"
+      >
+        <el-table-column prop="billCycle" label="结算周期" width="200">
+          <template slot-scope="scope">
+            {{ formatBillCycleRange(scope.row.billCycle) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="billStatus" label="状态" width="120" align="center">
+          <template slot-scope="scope">
+            <StatusTag type="bill" :status="scope.row.billStatus" />
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="confirmTime" label="约定付款日" width="160">
+          <template slot-scope="scope">
+            {{ scope.row.confirmTime ? formatDate(scope.row.confirmTime) : "-" }}
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="billNo" label="付款编码" width="180"></el-table-column>
+
+        <el-table-column prop="totalAmount" label="账单合计" align="right">
+          <template slot-scope="scope">
+            <span class="amount">{{ formatAmount(scope.row.totalAmount) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="应付" align="right">
+          <template slot-scope="scope">
+            <span class="amount">{{ formatAmount(scope.row.totalAmount) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="待开票金额" align="right">
+          <template slot-scope="scope">
+            <span class="amount">{{
+              scope.row.billStatus < 2 ? formatAmount(scope.row.totalAmount) : formatAmount(0)
+            }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="220" fixed="right">
+          <template slot-scope="scope">
+            <el-button type="text" size="small" @click="handleViewDetail(scope.row)">查看明细</el-button>
+            <el-button v-if="scope.row.billStatus === 0" type="text" size="small" @click="handleConfirm(scope.row)">
+              立即确认
+            </el-button>
+            <el-button v-if="scope.row.billStatus === 1" type="text" size="small" @click="handleInvoice(scope.row)">
+              立即开票
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination-container">
+        <span class="pagination-info">共 {{ total }} 条</span>
+        <el-pagination
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 50, 100]"
+          :page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next, sizes, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        ></el-pagination>
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script>
+import StatusTag from "@/components/common/StatusTag.vue";
+import { getBills } from "@/mock/bills";
+import { formatAmount, formatDate } from "@/utils/format";
+import { getCurrentUser } from "@/mock/users";
+
+export default {
+  name: "BillList",
+  components: {
+    StatusTag
+  },
+  data() {
+    return {
+      companyInfo: {
+        name: "",
+        fullName: "",
+        id: ""
+      },
+      dateRange: [],
+      selectedStatuses: [0, 1, 2, 3, 4, 5],
+      searchKeyword: "",
+      bills: [],
+      loading: false,
+      currentPage: 1,
+      pageSize: 10,
+      total: 0
+    };
+  },
+  computed: {
+    filteredBills() {
+      let result = this.bills;
+
+      // 状态筛选
+      if (this.selectedStatuses.length > 0 && this.selectedStatuses.length < 6) {
+        result = result.filter((bill) => {
+          // 映射真实状态到显示状态
+          const displayStatus = this.mapBillStatus(bill.billStatus);
+          return this.selectedStatuses.includes(displayStatus);
+        });
+      }
+
+      // 搜索筛选
+      if (this.searchKeyword) {
+        result = result.filter((bill) => bill.billNo.toLowerCase().includes(this.searchKeyword.toLowerCase()));
+      }
+
+      this.total = result.length;
+      return result;
+    }
+  },
+  mounted() {
+    this.loadCompanyInfo();
+    this.loadBills();
+  },
+  methods: {
+    formatAmount,
+    formatDate,
+    loadCompanyInfo() {
+      const user = getCurrentUser();
+      this.companyInfo = {
+        name: user.companyName,
+        fullName: user.companyName,
+        id: user.userId.replace("USER", "")
+      };
+    },
+    loadBills() {
+      this.loading = true;
+      setTimeout(() => {
+        this.bills = getBills();
+        this.total = this.bills.length;
+        this.loading = false;
+      }, 500);
+    },
+    // 映射账单状态到显示状态
+    mapBillStatus(status) {
+      // 0-待对账 -> 0-未开始对账
+      // 1-已核对 -> 1-待确认
+      // 2-开票中 -> 3-待开票
+      // 3-已结清 -> 5-已结清
+      const statusMap = {
+        0: 0, // 待对账 -> 未开始对账
+        1: 1, // 已核对 -> 待确认
+        2: 3, // 开票中 -> 待开票
+        3: 5 // 已结清 -> 已结清
+      };
+      return statusMap[status] !== undefined ? statusMap[status] : status;
+    },
+    formatBillCycleRange(cycle) {
+      if (!cycle) return "-";
+      const [year, month] = cycle.split("-");
+      const startDate = `${year}-${month}-01`;
+      const endDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month}-${endDay}`;
+      return `${startDate}至${endDate}`;
+    },
+    handleSearch() {
+      console.log("搜索:", this.searchKeyword);
+    },
+    handleViewDetail(bill) {
+      this.$router.push({
+        name: "BillDetail",
+        params: { billNo: bill.billNo }
+      });
+    },
+    handleConfirm(bill) {
+      this.$router.push({
+        name: "BillDetail",
+        params: { billNo: bill.billNo }
+      });
+    },
+    handleInvoice(bill) {
+      this.$router.push({
+        name: "InvoiceApply",
+        params: { billNo: bill.billNo }
+      });
+    },
+    handleSizeChange(val) {
+      this.pageSize = val;
+    },
+    handleCurrentChange(val) {
+      this.currentPage = val;
+    }
+  }
+};
+</script>
+
+<style lang="less" scoped>
+@import "~@/assets/styles/variables.less";
+
+.bill-list-page {
+  .company-info {
+    background: @bg-white;
+    padding: @spacing-lg @spacing-xl;
+    border-radius: @radius-md;
+    margin-bottom: @spacing-md;
+
+    .company-name {
+      font-size: @font-size-xl;
+      font-weight: 600;
+      color: @text-primary;
+      margin-bottom: @spacing-xs;
+    }
+
+    .company-id {
+      font-size: @font-size-sm;
+      color: @text-secondary;
+    }
+  }
+
+  .filter-card {
+    margin-bottom: @spacing-md;
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: @spacing-md;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .filter-label {
+        width: 120px;
+        color: @text-regular;
+        font-size: @font-size-base;
+        flex-shrink: 0;
+      }
+
+      .el-checkbox-group {
+        flex: 1;
+        display: flex;
+        gap: @spacing-md;
+      }
+
+      .el-button {
+        margin-left: @spacing-md;
+      }
+    }
+  }
+
+  .table-card {
+    .amount {
+      font-weight: 600;
+      color: @danger-color;
+    }
+
+    .pagination-container {
+      padding: @spacing-lg @spacing-md;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid @border-base;
+
+      .pagination-info {
+        color: @text-secondary;
+        font-size: @font-size-sm;
+      }
+    }
+  }
+}
+</style>
+

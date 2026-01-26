@@ -1,0 +1,297 @@
+openapi: 3.0.3
+info:
+  title: Split Configuration API
+  description: 拆分配置相关 API，用于管理用户的发票拆分汇总维度配置
+  version: 1.0.0
+  contact:
+    name: compMOS Team
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境
+  - url: https://api.compmos.example.com/api
+    description: 生产环境
+
+paths:
+  /config/split:
+    get:
+      summary: 获取拆分配置
+      description: 获取当前登录用户的发票拆分汇总维度配置
+      operationId: getSplitConfig
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: 成功获取配置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitConfigResponse'
+              examples:
+                with_config:
+                  summary: 用户已配置
+                  value:
+                    code: 200
+                    success: true
+                    message: "success"
+                    data:
+                      dimension1: "businessLine"
+                      dimension2: "legalEntity"
+                      enabled: true
+                      lastUpdated: "2026-01-23T10:30:00.000Z"
+                no_config:
+                  summary: 用户未配置
+                  value:
+                    code: 200
+                    success: true
+                    message: "success"
+                    data: null
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: 保存拆分配置
+      description: 保存或更新当前登录用户的发票拆分汇总维度配置
+      operationId: saveSplitConfig
+      tags:
+        - Configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitConfig'
+            examples:
+              two_dimensions:
+                summary: 配置两个维度
+                value:
+                  dimension1: "businessLine"
+                  dimension2: "legalEntity"
+                  enabled: true
+              one_dimension:
+                summary: 配置一个维度
+                value:
+                  dimension1: "businessLine"
+                  dimension2: null
+                  enabled: true
+              no_split:
+                summary: 不使用拆分
+                value:
+                  dimension1: null
+                  dimension2: null
+                  enabled: false
+      responses:
+        '200':
+          description: 配置保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitConfigResponse'
+              example:
+                code: 200
+                success: true
+                message: "配置保存成功"
+                data:
+                  dimension1: "businessLine"
+                  dimension2: "legalEntity"
+                  enabled: true
+                  lastUpdated: "2026-01-23T10:30:00.000Z"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate_dimensions:
+                  summary: 维度重复
+                  value:
+                    code: 400
+                    success: false
+                    message: "字段一和字段二不能重复"
+                    data: null
+                invalid_dimension:
+                  summary: 维度值无效
+                  value:
+                    code: 400
+                    success: false
+                    message: "维度值不合法，必须是 businessLine, legalEntity, paymentAccount, department 或 null"
+                    data: null
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: 清除拆分配置
+      description: 清除当前登录用户的发票拆分汇总维度配置，恢复为默认（不拆分）
+      operationId: deleteSplitConfig
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: 配置清除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+              example:
+                code: 200
+                success: true
+                message: "配置清除成功"
+                data: null
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SplitConfig:
+      type: object
+      required:
+        - enabled
+      properties:
+        dimension1:
+          type: string
+          nullable: true
+          enum:
+            - businessLine
+            - legalEntity
+            - paymentAccount
+            - department
+            - null
+          description: 第一拆分维度
+          example: "businessLine"
+        dimension2:
+          type: string
+          nullable: true
+          enum:
+            - businessLine
+            - legalEntity
+            - paymentAccount
+            - department
+            - null
+          description: 第二拆分维度
+          example: "legalEntity"
+        enabled:
+          type: boolean
+          description: 是否启用拆分
+          example: true
+        lastUpdated:
+          type: string
+          format: date-time
+          description: 最后更新时间（ISO 8601）
+          example: "2026-01-23T10:30:00.000Z"
+          readOnly: true
+
+    SplitConfigResponse:
+      type: object
+      required:
+        - code
+        - success
+        - message
+      properties:
+        code:
+          type: integer
+          description: 响应码
+          example: 200
+        success:
+          type: boolean
+          description: 是否成功
+          example: true
+        message:
+          type: string
+          description: 响应消息
+          example: "success"
+        data:
+          $ref: '#/components/schemas/SplitConfig'
+          nullable: true
+
+    BaseResponse:
+      type: object
+      required:
+        - code
+        - success
+        - message
+      properties:
+        code:
+          type: integer
+          description: 响应码
+          example: 200
+        success:
+          type: boolean
+          description: 是否成功
+          example: true
+        message:
+          type: string
+          description: 响应消息
+          example: "success"
+        data:
+          type: object
+          nullable: true
+          description: 响应数据
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - success
+        - message
+      properties:
+        code:
+          type: integer
+          description: 错误码
+          example: 400
+        success:
+          type: boolean
+          description: 是否成功
+          example: false
+        message:
+          type: string
+          description: 错误消息
+          example: "字段一和字段二不能重复"
+        data:
+          type: object
+          nullable: true
+          description: 错误详情
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Configuration
+    description: 配置管理相关接口
+

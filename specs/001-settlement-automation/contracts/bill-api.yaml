@@ -1,0 +1,762 @@
+openapi: 3.0.3
+info:
+  title: compMOS Bill API
+  description: |
+    企业自动化结算平台 - 账单相关API
+    
+    本API定义了compMOS前端与MOS后台之间关于账单管理的接口规范，包括账单包查询、订单明细查询、账单确认和导出等功能。
+  version: 1.0.0
+  contact:
+    name: compMOS Team
+servers:
+  - url: https://api.example.com
+    description: 生产环境
+  - url: https://api-test.example.com
+    description: 测试环境
+  - url: http://localhost:3000
+    description: 本地开发环境
+
+tags:
+  - name: Bill Package
+    description: 账单包管理
+  - name: Order Detail
+    description: 订单明细管理
+  - name: Bill Export
+    description: 账单导出
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/bills:
+    get:
+      tags:
+        - Bill Package
+      summary: 获取账单包列表
+      description: 获取当前企业的账单包列表，支持分页和筛选
+      operationId: getBillPackages
+      parameters:
+        - name: billCycle
+          in: query
+          description: 账单周期（YYYY-MM格式）
+          schema:
+            type: string
+            example: '2026-01'
+        - name: billStatus
+          in: query
+          description: 账单状态（0-待对账，1-对账完成，2-开票中，3-已结清）
+          schema:
+            type: integer
+            enum: [0, 1, 2, 3]
+        - name: startDate
+          in: query
+          description: 开始日期
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 结束日期
+          schema:
+            type: string
+            format: date
+        - name: pageNum
+          in: query
+          description: 页码（从1开始）
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: 每页条数
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 成功获取账单包列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillPackageListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/bills/{billNo}:
+    get:
+      tags:
+        - Bill Package
+      summary: 获取账单包详情
+      description: 根据账单编号获取单个账单包的详细信息
+      operationId: getBillPackageDetail
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取账单包详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillPackageDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Bill Package
+      summary: 更新账单包状态
+      description: 更新账单包的状态（如从"待对账"更新为"对账完成"）
+      operationId: updateBillPackageStatus
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - billStatus
+              properties:
+                billStatus:
+                  type: integer
+                  description: 账单状态
+                  enum: [1, 2, 3]
+                remark:
+                  type: string
+                  description: 备注
+      responses:
+        '200':
+          description: 状态更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/bills/{billNo}/confirm:
+    post:
+      tags:
+        - Bill Package
+      summary: 确认账单包
+      description: 企业用户确认账单包，将状态从"待对账"更新为"对账完成"
+      operationId: confirmBillPackage
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 确认成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/bills/{billNo}/orders:
+    get:
+      tags:
+        - Order Detail
+      summary: 获取账单订单明细列表
+      description: 获取指定账单包下的订单明细列表，支持分页和筛选
+      operationId: getOrderDetails
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+        - name: businessType
+          in: query
+          description: 业务类型（001-酒店，002-机票，003-火车）
+          schema:
+            type: string
+            enum: ['001', '002', '003']
+        - name: travelerName
+          in: query
+          description: 出行人姓名（模糊搜索）
+          schema:
+            type: string
+        - name: checkStatus
+          in: query
+          description: 核对状态（true-已核对，false-未核对）
+          schema:
+            type: boolean
+        - name: startDate
+          in: query
+          description: 开始日期
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 结束日期
+          schema:
+            type: string
+            format: date
+        - name: pageNum
+          in: query
+          description: 页码（从1开始）
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: 每页条数
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: 成功获取订单明细列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetailListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/bills/{billNo}/orders/batch-update:
+    post:
+      tags:
+        - Order Detail
+      summary: 批量更新订单核对状态
+      description: 批量更新订单的核对状态
+      operationId: batchUpdateOrderCheckStatus
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderNos
+                - checkStatus
+              properties:
+                orderNos:
+                  type: array
+                  description: 订单号列表
+                  items:
+                    type: string
+                checkStatus:
+                  type: boolean
+                  description: 核对状态
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '更新成功'
+                  data:
+                    type: object
+                    properties:
+                      successCount:
+                        type: integer
+                        description: 成功更新数量
+                      failCount:
+                        type: integer
+                        description: 失败数量
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/bills/{billNo}/orders/batch-adjust:
+    post:
+      tags:
+        - Order Detail
+      summary: 批量调整订单字段（仅预存企业）
+      description: 预存企业用户批量修改订单的成本中心、项目部门、发票抬头等字段
+      operationId: batchAdjustOrders
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单编号
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderNos
+                - adjustReason
+              properties:
+                orderNos:
+                  type: array
+                  description: 订单号列表
+                  items:
+                    type: string
+                costCenter:
+                  type: string
+                  description: 成本中心
+                costUnderDep:
+                  type: string
+                  description: 成本归属部门
+                invoiceTitle:
+                  type: string
+                  description: 发票抬头
+                adjustReason:
+                  type: string
+                  description: 调整原因（必填）
+                  minLength: 5
+                  maxLength: 200
+      responses:
+        '200':
+          description: 调整成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/bills/export:
+    post:
+      tags:
+        - Bill Export
+      summary: 申请导出账单
+      description: 申请导出账单（Excel或PDF），返回任务ID
+      operationId: requestExportBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - billNo
+                - exportType
+              properties:
+                billNo:
+                  type: string
+                  description: 账单编号
+                exportType:
+                  type: string
+                  description: 导出类型
+                  enum: ['excel', 'pdf']
+                businessTypes:
+                  type: array
+                  description: 业务类型列表（为空表示全部）
+                  items:
+                    type: string
+                    enum: ['001', '002', '003']
+      responses:
+        '200':
+          description: 申请成功，返回任务ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '导出任务已创建'
+                  data:
+                    type: object
+                    properties:
+                      taskId:
+                        type: string
+                        description: 导出任务ID
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/bills/export/status:
+    get:
+      tags:
+        - Bill Export
+      summary: 查询导出任务状态
+      description: 查询导出任务的执行状态和下载链接
+      operationId: getExportStatus
+      parameters:
+        - name: taskId
+          in: query
+          required: true
+          description: 导出任务ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取任务状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      taskId:
+                        type: string
+                      status:
+                        type: string
+                        enum: ['pending', 'processing', 'completed', 'failed']
+                        description: 任务状态
+                      downloadUrl:
+                        type: string
+                        description: 下载链接（status为completed时有值）
+                      errorMessage:
+                        type: string
+                        description: 错误信息（status为failed时有值）
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    BillPackageListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+          example: '成功'
+        data:
+          type: object
+          properties:
+            list:
+              type: array
+              items:
+                $ref: '#/components/schemas/BillPackage'
+            total:
+              type: integer
+              description: 总条数
+            pageNum:
+              type: integer
+              description: 当前页码
+            pageSize:
+              type: integer
+              description: 每页条数
+
+    BillPackage:
+      type: object
+      properties:
+        billNo:
+          type: string
+          description: 账单编号
+          example: 'BILL202601001'
+        companyId:
+          type: string
+          description: 企业ID
+        companyName:
+          type: string
+          description: 企业名称
+        billCycle:
+          type: string
+          description: 账单周期
+          example: '2026-01'
+        billType:
+          type: integer
+          description: 出账方式（0-支付时间，1-出行时间）
+          enum: [0, 1]
+        billStatus:
+          type: integer
+          description: 账单状态（0-待对账，1-对账完成，2-开票中，3-已结清）
+          enum: [0, 1, 2, 3]
+        totalAmount:
+          type: number
+          format: double
+          description: 总金额（元）
+          example: 125000.50
+        totalOrderCount:
+          type: integer
+          description: 总订单数
+          example: 45
+        hotelAmount:
+          type: number
+          format: double
+          description: 酒店金额
+        hotelCount:
+          type: integer
+          description: 酒店订单数
+        flightAmount:
+          type: number
+          format: double
+          description: 机票金额
+        flightCount:
+          type: integer
+          description: 机票订单数
+        trainAmount:
+          type: number
+          format: double
+          description: 火车票金额
+        trainCount:
+          type: integer
+          description: 火车票订单数
+        visible:
+          type: boolean
+          description: 用户可见性
+        createTime:
+          type: string
+          format: date-time
+          description: 生成时间
+        confirmTime:
+          type: string
+          format: date-time
+          description: 确认时间
+          nullable: true
+        settleTime:
+          type: string
+          format: date-time
+          description: 结清时间
+          nullable: true
+        accountType:
+          type: integer
+          description: 账户类型（1-预存，2-授信）
+          enum: [1, 2]
+
+    BillPackageDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/BillPackage'
+
+    OrderDetailListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            list:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderDetail'
+            total:
+              type: integer
+            pageNum:
+              type: integer
+            pageSize:
+              type: integer
+
+    OrderDetail:
+      type: object
+      properties:
+        orderNo:
+          type: string
+          description: 订单号
+        endorseNo:
+          type: string
+          description: 原始订单号
+        businessType:
+          type: string
+          description: 业务类型
+          enum: ['001', '002', '003']
+        atomId:
+          type: string
+          description: 原子ID
+        travelerName:
+          type: string
+          description: 出行人姓名
+        bookerName:
+          type: string
+          description: 预订人姓名
+        haveTraveled:
+          type: boolean
+          description: 是否出行
+        departTime:
+          type: string
+          format: date-time
+          description: 出发时间
+        arriveTime:
+          type: string
+          format: date-time
+          description: 到达时间
+        travelTime:
+          type: string
+          format: date-time
+          description: 出行时间
+        payAmount:
+          type: number
+          format: double
+          description: 支付金额（元）
+        payTime:
+          type: string
+          format: date-time
+          description: 支付时间
+        orderTime:
+          type: string
+          format: date-time
+          description: 订单时间
+        costCenter:
+          type: string
+          description: 成本中心
+        costUnderDep:
+          type: string
+          description: 成本归属部门
+        legalEntity:
+          type: string
+          description: 法人实体
+        invoiceTitle:
+          type: string
+          description: 发票抬头
+        taxpayerIdentificationNumber:
+          type: string
+          description: 纳税人识别号
+        checkStatus:
+          type: boolean
+          description: 核对状态
+        productProvider:
+          type: string
+          description: 供应商
+        channelProductName:
+          type: string
+          description: 渠道产品类型
+        category:
+          type: string
+          description: 出行类别
+        groupName:
+          type: string
+          description: 集团名称
+        ticketNo:
+          type: string
+          description: 票号
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+          example: '操作成功'
+        data:
+          type: object
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 错误码
+        message:
+          type: string
+          description: 错误信息
+        data:
+          type: object
+          nullable: true
+
+  responses:
+    UnauthorizedError:
+      description: 未授权，Token无效或过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '401'
+            message: '未授权，请重新登录'
+
+    ForbiddenError:
+      description: 禁止访问，权限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '403'
+            message: '权限不足'
+
+    NotFoundError:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '404'
+            message: '资源不存在'
+
+    BadRequestError:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '400'
+            message: '请求参数错误'
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '500'
+            message: '服务器内部错误'
+

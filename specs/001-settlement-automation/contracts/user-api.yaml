@@ -1,0 +1,796 @@
+openapi: 3.0.3
+info:
+  title: compMOS User API
+  description: |
+    企业自动化结算平台 - 用户相关API
+    
+    本API定义了compMOS前端与MOS后台之间关于用户认证、用户信息管理的接口规范。
+  version: 1.0.0
+  contact:
+    name: compMOS Team
+servers:
+  - url: https://api.example.com
+    description: 生产环境
+  - url: https://api-test.example.com
+    description: 测试环境
+  - url: http://localhost:3000
+    description: 本地开发环境
+
+tags:
+  - name: Authentication
+    description: 用户认证
+  - name: User Info
+    description: 用户信息管理
+  - name: Permissions
+    description: 权限管理
+
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登录
+      description: 企业用户通过用户名和密码登录系统
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: 用户名或邮箱
+                  example: 'user@example.com'
+                password:
+                  type: string
+                  description: 密码
+                  format: password
+                loginType:
+                  type: string
+                  description: 登录类型
+                  enum: ['password', 'sso']
+                  default: 'password'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '登录成功'
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT Token
+                        example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                      refreshToken:
+                        type: string
+                        description: 刷新Token
+                      expiresIn:
+                        type: integer
+                        description: Token有效期（秒）
+                        example: 7200
+                      userInfo:
+                        $ref: '#/components/schemas/UserInfo'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: '401'
+                message: '用户名或密码错误'
+
+  /api/auth/sso-login:
+    post:
+      tags:
+        - Authentication
+      summary: SSO单点登录
+      description: 通过企业SSO进行登录，接收SSO返回的授权码
+      operationId: ssoLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  description: SSO授权码
+                state:
+                  type: string
+                  description: 状态参数
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '登录成功'
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      refreshToken:
+                        type: string
+                      expiresIn:
+                        type: integer
+                      userInfo:
+                        $ref: '#/components/schemas/UserInfo'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登出
+      description: 用户登出系统，清除Token
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '登出成功'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/refresh-token:
+    post:
+      tags:
+        - Authentication
+      summary: 刷新Token
+      description: 使用RefreshToken刷新AccessToken
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  description: 刷新Token
+      responses:
+        '200':
+          description: Token刷新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: 新的AccessToken
+                      refreshToken:
+                        type: string
+                        description: 新的RefreshToken
+                      expiresIn:
+                        type: integer
+                        description: 有效期（秒）
+        '401':
+          description: RefreshToken无效或过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/userinfo:
+    get:
+      tags:
+        - User Info
+      summary: 获取用户信息
+      description: 获取当前登录用户的详细信息，包括企业信息和权限
+      operationId: getUserInfo
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功获取用户信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserInfo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/permissions:
+    get:
+      tags:
+        - Permissions
+      summary: 获取用户权限列表
+      description: 获取当前用户的权限标识列表
+      operationId: getUserPermissions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功获取权限列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      permissions:
+                        type: array
+                        description: 权限标识列表
+                        items:
+                          type: string
+                        example:
+                          - 'bill:view'
+                          - 'bill:confirm'
+                          - 'bill:export'
+                          - 'bill:adjust'
+                          - 'invoice:view'
+                          - 'invoice:apply'
+                          - 'invoice:download'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/user/profile:
+    get:
+      tags:
+        - User Info
+      summary: 获取用户个人资料
+      description: 获取用户的个人资料信息
+      operationId: getUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功获取个人资料
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - User Info
+      summary: 更新用户个人资料
+      description: 更新用户的个人资料信息（头像、联系方式等）
+      operationId: updateUserProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 姓名
+                phone:
+                  type: string
+                  description: 联系电话
+                  pattern: '^1[3-9]\d{9}$'
+                email:
+                  type: string
+                  description: 邮箱
+                  format: email
+                avatar:
+                  type: string
+                  description: 头像URL
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '更新成功'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/user/addresses:
+    get:
+      tags:
+        - User Info
+      summary: 获取企业收货地址列表
+      description: 获取当前企业的所有收货地址
+      operationId: getAddressList
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功获取地址列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - User Info
+      summary: 添加收货地址
+      description: 为企业添加新的收货地址
+      operationId: addAddress
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: 添加成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '添加成功'
+                  data:
+                    type: object
+                    properties:
+                      addressId:
+                        type: string
+                        description: 新建地址ID
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/user/addresses/{addressId}:
+    put:
+      tags:
+        - User Info
+      summary: 更新收货地址
+      description: 更新指定的收货地址信息
+      operationId: updateAddress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          description: 地址ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '更新成功'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - User Info
+      summary: 删除收货地址
+      description: 删除指定的收货地址
+      operationId: deleteAddress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          description: 地址ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '删除成功'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserInfo:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: 用户ID
+          example: 'USER123456'
+        username:
+          type: string
+          description: 用户名
+          example: 'zhangsan'
+        name:
+          type: string
+          description: 姓名
+          example: '张三'
+        role:
+          type: string
+          description: 角色
+          example: '企业用户'
+        
+        # 企业信息
+        companyId:
+          type: string
+          description: 企业ID
+        companyName:
+          type: string
+          description: 企业名称
+          example: '示例科技有限公司'
+        creditCode:
+          type: string
+          description: 统一社会信用代码
+        accountType:
+          type: integer
+          description: 账户类型（1-预存，2-授信）
+          enum: [1, 2]
+        appId:
+          type: string
+          description: 易快报企业ID
+        
+        # 权限信息
+        permissions:
+          type: array
+          description: 权限标识列表
+          items:
+            type: string
+          example:
+            - 'bill:view'
+            - 'bill:confirm'
+            - 'invoice:apply'
+        dataScope:
+          type: string
+          description: 数据权限范围
+        
+        # 企业配置
+        companyConfig:
+          type: object
+          properties:
+            defaultInvoiceHeader:
+              type: string
+              description: 默认发票抬头
+            defaultTaxpayerNumber:
+              type: string
+              description: 默认纳税人识别号
+            addressList:
+              type: array
+              description: 收货地址列表
+              items:
+                $ref: '#/components/schemas/Address'
+            settleManager:
+              type: object
+              description: 结算人员信息
+              properties:
+                name:
+                  type: string
+                  description: 结算人员姓名
+                phone:
+                  type: string
+                  description: 联系电话
+                email:
+                  type: string
+                  description: 联系邮箱
+        
+        # 登录信息
+        loginType:
+          type: string
+          description: 登录方式
+          enum: ['email', 'sso']
+        lastLoginTime:
+          type: string
+          format: date-time
+          description: 最后登录时间
+
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          description: 联系电话
+        email:
+          type: string
+          description: 邮箱
+        avatar:
+          type: string
+          description: 头像URL
+        companyId:
+          type: string
+        companyName:
+          type: string
+        accountType:
+          type: integer
+          enum: [1, 2]
+        createTime:
+          type: string
+          format: date-time
+          description: 创建时间
+        lastLoginTime:
+          type: string
+          format: date-time
+          description: 最后登录时间
+
+    Address:
+      type: object
+      properties:
+        addressId:
+          type: string
+          description: 地址ID
+        receiverName:
+          type: string
+          description: 收货人
+          example: '张三'
+        phone:
+          type: string
+          description: 联系电话
+          example: '13800138000'
+        province:
+          type: string
+          description: 省份
+          example: '北京市'
+        city:
+          type: string
+          description: 城市
+          example: '北京市'
+        district:
+          type: string
+          description: 区县
+          example: '朝阳区'
+        address:
+          type: string
+          description: 详细地址
+          example: '建国路88号SOHO现代城'
+        isDefault:
+          type: boolean
+          description: 是否默认地址
+        createTime:
+          type: string
+          format: date-time
+          description: 创建时间
+        updateTime:
+          type: string
+          format: date-time
+          description: 更新时间
+
+    AddressInput:
+      type: object
+      required:
+        - receiverName
+        - phone
+        - province
+        - city
+        - address
+      properties:
+        receiverName:
+          type: string
+          description: 收货人
+          minLength: 2
+          maxLength: 50
+        phone:
+          type: string
+          description: 联系电话
+          pattern: '^1[3-9]\d{9}$'
+        province:
+          type: string
+          description: 省份
+        city:
+          type: string
+          description: 城市
+        district:
+          type: string
+          description: 区县
+        address:
+          type: string
+          description: 详细地址
+          minLength: 5
+          maxLength: 200
+        isDefault:
+          type: boolean
+          description: 是否设为默认地址
+          default: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 错误码
+        message:
+          type: string
+          description: 错误信息
+        data:
+          type: object
+          nullable: true
+
+  responses:
+    UnauthorizedError:
+      description: 未授权，Token无效或过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '401'
+            message: '未授权，请重新登录'
+
+    ForbiddenError:
+      description: 禁止访问，权限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '403'
+            message: '权限不足'
+
+    NotFoundError:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '404'
+            message: '资源不存在'
+
+    BadRequestError:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '400'
+            message: '请求参数错误'
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '500'
+            message: '服务器内部错误'
+

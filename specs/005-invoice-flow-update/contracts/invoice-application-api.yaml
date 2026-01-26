@@ -1,0 +1,673 @@
+openapi: 3.0.3
+info:
+  title: Invoice Application API
+  description: 开票申请相关 API，包括账单确认、开票信息生成和开票申请提交
+  version: 1.0.0
+  contact:
+    name: compMOS Team
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境
+  - url: https://api.compmos.example.com/api
+    description: 生产环境
+
+paths:
+  /bills/{billNo}/confirm:
+    post:
+      summary: 确认账单
+      description: 确认账单无误，将账单状态更新为待开票，所有订单状态更新为已核对
+      operationId: confirmBill
+      tags:
+        - Bill
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单号
+          schema:
+            type: string
+          example: "BILL202601001"
+      responses:
+        '200':
+          description: 账单确认成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "账单确认成功"
+                  data:
+                    type: object
+                    properties:
+                      billNo:
+                        type: string
+                        example: "BILL202601001"
+                      status:
+                        type: integer
+                        description: 账单状态（2=待开票）
+                        example: 2
+                      confirmTime:
+                        type: string
+                        format: date-time
+                        example: "2026-01-23T14:20:00.000Z"
+        '400':
+          description: 请求参数错误或账单状态不允许确认
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 账单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bills/{billNo}/invoice-rows:
+    get:
+      summary: 获取开票信息行
+      description: 根据账单订单数据和用户配置的拆分维度，生成开票信息行列表
+      operationId: getInvoiceRows
+      tags:
+        - Invoice
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单号
+          schema:
+            type: string
+          example: "BILL202601001"
+      responses:
+        '200':
+          description: 成功获取开票信息行
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "success"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InvoiceRow'
+              examples:
+                with_split:
+                  summary: 按业务线+法人实体拆分
+                  value:
+                    code: 200
+                    success: true
+                    message: "success"
+                    data:
+                      - id: "invoice-1"
+                        groupLabel: "机票 - 北京分公司"
+                        invoiceType: "FLIGHT_ITINERARY"
+                        invoiceTypeName: "机票电子行程单"
+                        amount: 35000.00
+                        orderCount: 15
+                        titleId: null
+                        recipientInfo: null
+                        quantity: 15
+                        dimensionValues:
+                          dimension1: "flight"
+                          dimension2: "北京分公司"
+                      - id: "invoice-2"
+                        groupLabel: "酒店 - 北京分公司"
+                        invoiceType: "GENERAL"
+                        invoiceTypeName: "增值税普票"
+                        amount: 18500.00
+                        orderCount: 8
+                        titleId: null
+                        recipientInfo: null
+                        quantity: 8
+                        dimensionValues:
+                          dimension1: "hotel"
+                          dimension2: "北京分公司"
+                no_split:
+                  summary: 不使用拆分（按发票种类）
+                  value:
+                    code: 200
+                    success: true
+                    message: "success"
+                    data:
+                      - id: "invoice-1"
+                        groupLabel: "机票电子行程单"
+                        invoiceType: "FLIGHT_ITINERARY"
+                        invoiceTypeName: "机票电子行程单"
+                        amount: 68500.00
+                        orderCount: 25
+                        titleId: null
+                        recipientInfo: null
+                        quantity: 25
+                        dimensionValues:
+                          dimension1: null
+                          dimension2: null
+        '404':
+          description: 账单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bills/{billNo}/invoice-applications:
+    post:
+      summary: 提交开票申请
+      description: 提交开票申请，将账单状态更新为开票中，生成开票申请记录
+      operationId: submitInvoiceApplication
+      tags:
+        - Invoice
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单号
+          schema:
+            type: string
+          example: "BILL202601001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - invoiceRows
+              properties:
+                invoiceRows:
+                  type: array
+                  description: 开票信息行列表
+                  items:
+                    $ref: '#/components/schemas/InvoiceRowInput'
+            example:
+              invoiceRows:
+                - id: "invoice-1"
+                  invoiceType: "FLIGHT_ITINERARY"
+                  amount: 35000.00
+                  orderCount: 15
+                  titleId: "T001"
+                  recipientInfo:
+                    name: "张三"
+                    phone: "13800138000"
+                    email: "zhangsan@example.com"
+                    address: "北京市海淀区中关村大街1号"
+                  quantity: 15
+                - id: "invoice-2"
+                  invoiceType: "GENERAL"
+                  amount: 18500.00
+                  orderCount: 8
+                  titleId: "T001"
+                  recipientInfo:
+                    name: "张三"
+                    phone: "13800138000"
+                    email: "zhangsan@example.com"
+                    address: "北京市海淀区中关村大街1号"
+                  quantity: 8
+      responses:
+        '200':
+          description: 开票申请提交成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "开票申请提交成功"
+                  data:
+                    type: object
+                    properties:
+                      applicationId:
+                        type: string
+                        description: 申请编号
+                        example: "APP20260123001"
+                      billNo:
+                        type: string
+                        example: "BILL202601001"
+                      applyTime:
+                        type: string
+                        format: date-time
+                        example: "2026-01-23T14:20:00.000Z"
+                      invoiceCount:
+                        type: integer
+                        description: 开票行数
+                        example: 2
+                      status:
+                        type: integer
+                        description: 状态（1=处理中）
+                        example: 1
+        '400':
+          description: 请求参数错误或验证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_title:
+                  summary: 发票抬头未填写
+                  value:
+                    code: 400
+                    success: false
+                    message: "第1行开票信息未选择发票抬头"
+                    data: null
+                invalid_phone:
+                  summary: 电话号码格式错误
+                  value:
+                    code: 400
+                    success: false
+                    message: "第1行接收人电话格式错误，必须为11位数字"
+                    data: null
+        '404':
+          description: 账单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: 获取开票申请记录列表
+      description: 获取指定账单的所有开票申请记录，按申请时间倒序排列
+      operationId: getInvoiceApplications
+      tags:
+        - Invoice
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          description: 账单号
+          schema:
+            type: string
+          example: "BILL202601001"
+      responses:
+        '200':
+          description: 成功获取申请记录列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InvoiceApplication'
+                      total:
+                        type: integer
+                        description: 总记录数
+                        example: 3
+              example:
+                code: 200
+                success: true
+                message: "success"
+                data:
+                  list:
+                    - applicationNo: "APP20260123003"
+                      billNo: "BILL202601001"
+                      invoiceType: "增值税普票"
+                      content: "差旅服务费"
+                      amount: 12300.00
+                      titleName: "示例科技有限公司"
+                      taxNumber: "91110108MA01234567"
+                      submitter: "孙七"
+                      applyTime: "2026-01-23T15:00:00.000Z"
+                      status: "processing"
+                      remark: "开票中"
+                      isFlushed: false
+                    - applicationNo: "APP20260123002"
+                      billNo: "BILL202601001"
+                      invoiceType: "机票电子行程单"
+                      content: "国内机票行程单（25张）"
+                      amount: 68500.00
+                      titleName: "示例科技有限公司"
+                      taxNumber: "91110108MA01234567"
+                      submitter: "李四"
+                      applyTime: "2026-01-23T14:20:00.000Z"
+                      status: "completed"
+                      remark: ""
+                      isFlushed: false
+                  total: 2
+        '404':
+          description: 账单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    InvoiceRow:
+      type: object
+      required:
+        - id
+        - groupLabel
+        - invoiceType
+        - invoiceTypeName
+        - amount
+        - orderCount
+        - quantity
+        - dimensionValues
+      properties:
+        id:
+          type: string
+          description: 唯一标识
+          example: "invoice-1"
+        groupLabel:
+          type: string
+          description: 分组标签
+          example: "机票 - 北京分公司"
+        invoiceType:
+          type: string
+          enum:
+            - GENERAL
+            - SPECIAL
+            - FLIGHT_ITINERARY
+            - TRAIN_ITINERARY
+          description: 发票种类代码
+          example: "FLIGHT_ITINERARY"
+        invoiceTypeName:
+          type: string
+          description: 发票种类名称
+          example: "机票电子行程单"
+        amount:
+          type: number
+          format: double
+          description: 开票金额（元）
+          example: 35000.00
+        orderCount:
+          type: integer
+          description: 订单数量
+          example: 15
+        titleId:
+          type: string
+          nullable: true
+          description: 发票抬头ID
+          example: "T001"
+        titleName:
+          type: string
+          nullable: true
+          description: 发票抬头名称
+          example: "示例科技有限公司"
+        taxNumber:
+          type: string
+          nullable: true
+          description: 纳税人识别号
+          example: "91110108MA01234567"
+        recipientInfo:
+          $ref: '#/components/schemas/RecipientInfo'
+          nullable: true
+        quantity:
+          type: integer
+          description: 数量
+          minimum: 1
+          maximum: 99999
+          example: 15
+        dimensionValues:
+          type: object
+          required:
+            - dimension1
+            - dimension2
+          properties:
+            dimension1:
+              type: string
+              nullable: true
+              description: 第一维度的值
+              example: "flight"
+            dimension2:
+              type: string
+              nullable: true
+              description: 第二维度的值
+              example: "北京分公司"
+
+    InvoiceRowInput:
+      type: object
+      required:
+        - id
+        - invoiceType
+        - amount
+        - orderCount
+        - titleId
+        - recipientInfo
+        - quantity
+      properties:
+        id:
+          type: string
+          description: 唯一标识
+          example: "invoice-1"
+        invoiceType:
+          type: string
+          enum:
+            - GENERAL
+            - SPECIAL
+            - FLIGHT_ITINERARY
+            - TRAIN_ITINERARY
+          description: 发票种类代码
+          example: "FLIGHT_ITINERARY"
+        amount:
+          type: number
+          format: double
+          description: 开票金额（元）
+          example: 35000.00
+        orderCount:
+          type: integer
+          description: 订单数量
+          example: 15
+        titleId:
+          type: string
+          description: 发票抬头ID
+          example: "T001"
+        recipientInfo:
+          $ref: '#/components/schemas/RecipientInfo'
+        quantity:
+          type: integer
+          description: 数量
+          minimum: 1
+          maximum: 99999
+          example: 15
+
+    RecipientInfo:
+      type: object
+      required:
+        - name
+        - phone
+        - email
+        - address
+      properties:
+        name:
+          type: string
+          description: 接收人姓名
+          minLength: 1
+          example: "张三"
+        phone:
+          type: string
+          description: 接收人电话（11位数字）
+          pattern: '^\d{11}$'
+          example: "13800138000"
+        email:
+          type: string
+          format: email
+          description: 接收人邮箱
+          example: "zhangsan@example.com"
+        address:
+          type: string
+          description: 接收人地址
+          minLength: 1
+          maxLength: 100
+          example: "北京市海淀区中关村大街1号"
+
+    InvoiceApplication:
+      type: object
+      required:
+        - applicationNo
+        - billNo
+        - invoiceType
+        - content
+        - amount
+        - titleName
+        - taxNumber
+        - submitter
+        - applyTime
+        - status
+        - isFlushed
+      properties:
+        applicationNo:
+          type: string
+          description: 申请编号
+          example: "APP20260123001"
+        billNo:
+          type: string
+          description: 账单号
+          example: "BILL202601001"
+        invoiceType:
+          type: string
+          description: 发票类型名称
+          example: "机票电子行程单"
+        content:
+          type: string
+          description: 发票内容
+          example: "国内机票行程单（25张）"
+        amount:
+          type: number
+          format: double
+          description: 开票金额（元）
+          example: 68500.00
+        titleName:
+          type: string
+          description: 发票抬头名称
+          example: "示例科技有限公司"
+        taxNumber:
+          type: string
+          description: 纳税人识别号
+          example: "91110108MA01234567"
+        submitter:
+          type: string
+          description: 提交人
+          example: "李四"
+        applyTime:
+          type: string
+          format: date-time
+          description: 申请时间
+          example: "2026-01-23T14:20:00.000Z"
+        status:
+          type: string
+          enum:
+            - processing
+            - completed
+            - failed
+          description: 处理状态
+          example: "processing"
+        remark:
+          type: string
+          description: 备注
+          example: "开票中"
+        isFlushed:
+          type: boolean
+          description: 是否已红冲
+          example: false
+        flushedTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: 红冲时间
+          example: null
+        flushedReason:
+          type: string
+          nullable: true
+          description: 红冲原因
+          example: null
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - success
+        - message
+      properties:
+        code:
+          type: integer
+          description: 错误码
+          example: 400
+        success:
+          type: boolean
+          description: 是否成功
+          example: false
+        message:
+          type: string
+          description: 错误消息
+          example: "账单不存在"
+        data:
+          type: object
+          nullable: true
+          description: 错误详情
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Bill
+    description: 账单相关接口
+  - name: Invoice
+    description: 开票相关接口
+

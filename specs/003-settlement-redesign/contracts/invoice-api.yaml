@@ -1,0 +1,439 @@
+openapi: 3.0.3
+info:
+  title: 结算平台 - 开票管理API
+  description: 开票汇总、开票申请、发票管理等接口
+  version: 1.0.0
+
+servers:
+  - url: https://api.compmos.com/v1
+    description: 生产环境
+  - url: http://localhost:3000/api/v1
+    description: 本地开发环境
+
+tags:
+  - name: invoices
+    description: 开票管理相关接口
+  - name: invoice-titles
+    description: 发票抬头管理
+
+paths:
+  /bills/{billNo}/invoice-summary:
+    get:
+      tags:
+        - invoices
+      summary: 获取账单开票汇总信息
+      operationId: getInvoiceSummary
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功返回开票汇总信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      shouldInvoiceAmount:
+                        type: number
+                        description: 应开票金额
+                        example: 49144.76
+                      invoicedAmount:
+                        type: number
+                        description: 已开票金额
+                        example: 0
+                      remainingAmount:
+                        type: number
+                        description: 还可提交金额
+                        example: 49144.76
+                      invoiceDetails:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            invoiceType:
+                              type: string
+                              enum: [vat_general, vat_special, flight_itinerary, train_itinerary]
+                            invoiceSummary:
+                              type: string
+                            shouldAmount:
+                              type: number
+                            invoicedAmount:
+                              type: number
+                            remainingAmount:
+                              type: number
+                            orderCount:
+                              type: integer
+
+  /invoices/apply:
+    post:
+      tags:
+        - invoices
+      summary: 提交开票申请
+      operationId: applyInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                billNo:
+                  type: string
+                invoiceRows:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      invoiceType:
+                        type: string
+                        enum: [vat_general, vat_special, flight_itinerary, train_itinerary]
+                      invoiceSummary:
+                        type: string
+                      amount:
+                        type: number
+                      titleId:
+                        type: string
+                      receiverName:
+                        type: string
+                      receiverPhone:
+                        type: string
+                      receiverEmail:
+                        type: string
+                      receiverAddress:
+                        type: string
+                      unit:
+                        type: string
+                        default: "元"
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        maximum: 99999
+              required:
+                - billNo
+                - invoiceRows
+      responses:
+        '200':
+          description: 开票申请提交成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "开票申请提交成功"
+                  data:
+                    type: object
+                    properties:
+                      applicationId:
+                        type: string
+                      billNo:
+                        type: string
+                      billStatus:
+                        type: integer
+                        description: 更新后的账单状态（2-开票中）
+                        example: 2
+                      applyTime:
+                        type: string
+                        format: date-time
+                      invoiceCount:
+                        type: integer
+        '400':
+          description: 请求参数错误或开票金额超限
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 20001
+                  message:
+                    type: string
+                    example: "开票金额超过可开票金额"
+
+  /bills/{billNo}/invoice-applications:
+    get:
+      tags:
+        - invoices
+      summary: 获取账单的开票申请记录列表
+      operationId: getInvoiceApplications
+      parameters:
+        - name: billNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功返回开票申请记录
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            billNo:
+                              type: string
+                            invoiceType:
+                              type: string
+                            invoiceContent:
+                              type: string
+                            amount:
+                              type: number
+                            titleName:
+                              type: string
+                            taxNumber:
+                              type: string
+                            submitter:
+                              type: string
+                            applyTime:
+                              type: string
+                              format: date-time
+                            status:
+                              type: string
+                              enum: [pending, processing, completed, failed]
+                            invoiceFiles:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  fileName:
+                                    type: string
+                                  fileUrl:
+                                    type: string
+                                  fileSize:
+                                    type: number
+
+  /invoices/{invoiceId}/download:
+    get:
+      tags:
+        - invoices
+      summary: 下载发票文件
+      operationId: downloadInvoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 返回发票PDF文件
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /invoices/{invoiceId}/red-flush:
+    post:
+      tags:
+        - invoices
+      summary: 红冲发票
+      operationId: redFlushInvoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: 红冲原因
+      responses:
+        '200':
+          description: 红冲申请提交成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "红冲申请已提交"
+
+  /invoices/{invoiceId}/reissue:
+    post:
+      tags:
+        - invoices
+      summary: 换开发票
+      operationId: reissueInvoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newTitleName:
+                  type: string
+                  description: 新的发票抬头
+                newTaxNumber:
+                  type: string
+                  description: 新的税号
+                reason:
+                  type: string
+                  description: 换开原因
+              required:
+                - newTitleName
+                - newTaxNumber
+      responses:
+        '200':
+          description: 换开申请提交成功
+
+  /invoice-titles:
+    get:
+      tags:
+        - invoice-titles
+      summary: 获取企业发票抬头列表
+      operationId: getInvoiceTitles
+      responses:
+        '200':
+          description: 成功返回发票抬头列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            titleName:
+                              type: string
+                            taxNumber:
+                              type: string
+                            address:
+                              type: string
+                            phone:
+                              type: string
+                            bankName:
+                              type: string
+                            bankAccount:
+                              type: string
+                            isDefault:
+                              type: boolean
+    post:
+      tags:
+        - invoice-titles
+      summary: 新增发票抬头
+      operationId: createInvoiceTitle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                titleName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                taxNumber:
+                  type: string
+                  pattern: '^[0-9A-Z]{15}$|^[0-9A-Z]{18}$'
+                address:
+                  type: string
+                  minLength: 5
+                  maxLength: 100
+                phone:
+                  type: string
+                bankName:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                bankAccount:
+                  type: string
+                  pattern: '^\d{10,30}$'
+                isDefault:
+                  type: boolean
+                  default: false
+              required:
+                - titleName
+                - taxNumber
+                - address
+                - phone
+                - bankName
+                - bankAccount
+      responses:
+        '200':
+          description: 发票抬头创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "发票抬头创建成功"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: 新创建的抬头ID
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+

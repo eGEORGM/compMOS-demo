@@ -1,0 +1,243 @@
+openapi: 3.0.3
+info:
+  title: 结算平台 - 配置管理API
+  description: 明细设置、字段配置等用户配置相关接口
+  version: 1.0.0
+
+servers:
+  - url: https://api.compmos.com/v1
+    description: 生产环境
+  - url: http://localhost:3000/api/v1
+    description: 本地开发环境
+
+tags:
+  - name: configs
+    description: 用户配置管理
+
+paths:
+  /user/configs/detail-settings:
+    get:
+      tags:
+        - configs
+      summary: 获取明细设置配置
+      operationId: getDetailSettings
+      responses:
+        '200':
+          description: 成功返回明细设置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        description: 是否启用明细设置
+                        example: true
+                      dimensions:
+                        type: array
+                        description: 选择的拆分维度
+                        items:
+                          type: string
+                          enum: [businessLine, legalEntity, paymentAccount, department]
+                        example: ["businessLine", "legalEntity"]
+                      hierarchyOrder:
+                        type: array
+                        description: 层级顺序
+                        items:
+                          type: string
+                        example: ["businessLine", "legalEntity"]
+    put:
+      tags:
+        - configs
+      summary: 更新明细设置配置
+      operationId: updateDetailSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                dimensions:
+                  type: array
+                  items:
+                    type: string
+                    enum: [businessLine, legalEntity, paymentAccount, department]
+                hierarchyOrder:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - enabled
+                - dimensions
+                - hierarchyOrder
+      responses:
+        '200':
+          description: 配置更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "配置更新成功"
+
+  /user/configs/field-config:
+    get:
+      tags:
+        - configs
+      summary: 获取字段配置
+      operationId: getFieldConfig
+      responses:
+        '200':
+          description: 成功返回字段配置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      display:
+                        type: array
+                        description: 显示字段配置
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            label:
+                              type: string
+                            width:
+                              type: integer
+                            visible:
+                              type: boolean
+                      excelExport:
+                        type: array
+                        description: Excel导出字段keys
+                        items:
+                          type: string
+                      pdfExport:
+                        type: array
+                        description: PDF导出字段keys（最多20个）
+                        maxItems: 20
+                        items:
+                          type: string
+    put:
+      tags:
+        - configs
+      summary: 更新字段配置
+      operationId: updateFieldConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                      label:
+                        type: string
+                      width:
+                        type: integer
+                      visible:
+                        type: boolean
+                excelExport:
+                  type: array
+                  items:
+                    type: string
+                pdfExport:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: string
+              required:
+                - display
+                - excelExport
+                - pdfExport
+      responses:
+        '200':
+          description: 配置更新成功
+        '400':
+          description: PDF字段超过20个
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "PDF导出字段最多20个"
+
+  /system/config:
+    get:
+      tags:
+        - configs
+      summary: 获取系统配置
+      operationId: getSystemConfig
+      responses:
+        '200':
+          description: 成功返回系统配置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      maxBatchQueryCount:
+                        type: integer
+                        description: 批量查询最大数量
+                        example: 500
+                      maxOrdersPerBill:
+                        type: integer
+                        description: 每个账单最大订单数
+                        example: 10000
+                      pdfMaxFields:
+                        type: integer
+                        description: PDF最大字段数
+                        example: 20
+                      exportTimeout:
+                        type: integer
+                        description: 导出超时时间（秒）
+                        example: 60
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+

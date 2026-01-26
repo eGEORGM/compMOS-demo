@@ -1,0 +1,816 @@
+openapi: 3.0.3
+info:
+  title: compMOS Invoice API
+  description: |
+    企业自动化结算平台 - 发票相关API
+    
+    本API定义了compMOS前端与MOS后台之间关于发票管理的接口规范，包括发票申请、发票查询、发票下载等功能。
+  version: 1.0.0
+  contact:
+    name: compMOS Team
+servers:
+  - url: https://api.example.com
+    description: 生产环境
+  - url: https://api-test.example.com
+    description: 测试环境
+  - url: http://localhost:3000
+    description: 本地开发环境
+
+tags:
+  - name: Invoice Apply
+    description: 发票申请
+  - name: Invoice Query
+    description: 发票查询
+  - name: Invoice Download
+    description: 发票下载
+  - name: Invoice Batch
+    description: 发票批次管理
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/invoices/apply:
+    post:
+      tags:
+        - Invoice Apply
+      summary: 申请开票
+      description: 企业用户提交开票申请，系统生成开票批次并异步执行开票任务
+      operationId: applyInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceApplyRequest'
+      responses:
+        '200':
+          description: 申请成功，返回批次ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                    example: '开票申请已提交'
+                  data:
+                    type: object
+                    properties:
+                      batchId:
+                        type: string
+                        description: 批次号
+                        example: 'BATCH202601001'
+                      expectedInvoiceCount:
+                        type: integer
+                        description: 预计开票数量
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices/batches:
+    get:
+      tags:
+        - Invoice Batch
+      summary: 获取发票批次列表
+      description: 获取当前企业的发票批次列表
+      operationId: getInvoiceBatches
+      parameters:
+        - name: billNo
+          in: query
+          description: 账单编号（筛选）
+          schema:
+            type: string
+        - name: batchStatus
+          in: query
+          description: 批次状态
+          schema:
+            type: integer
+            enum: [0, 1, 2, 3, 4, 5, 6]
+        - name: startDate
+          in: query
+          description: 开始日期
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 结束日期
+          schema:
+            type: string
+            format: date
+        - name: pageNum
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: 每页条数
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 成功获取批次列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceBatchListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices/batches/{batchId}:
+    get:
+      tags:
+        - Invoice Batch
+      summary: 获取发票批次详情
+      description: 获取指定批次的详细信息，包括发票汇总统计
+      operationId: getInvoiceBatchDetail
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          description: 批次号
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取批次详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/InvoiceBatch'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices:
+    get:
+      tags:
+        - Invoice Query
+      summary: 获取发票列表
+      description: 获取当前企业的发票列表，支持分页和筛选
+      operationId: getInvoices
+      parameters:
+        - name: billNo
+          in: query
+          description: 账单编号
+          schema:
+            type: string
+        - name: batchId
+          in: query
+          description: 批次号
+          schema:
+            type: string
+        - name: invoiceType
+          in: query
+          description: 发票类型
+          schema:
+            type: string
+            enum: ['001', '002', '003', '004']
+        - name: invoiceStatus
+          in: query
+          description: 发票状态
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+        - name: invoiceNo
+          in: query
+          description: 发票号（精确搜索）
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: 开始日期
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 结束日期
+          schema:
+            type: string
+            format: date
+        - name: pageNum
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: 每页条数
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 成功获取发票列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices/{invoiceNo}:
+    get:
+      tags:
+        - Invoice Query
+      summary: 获取发票详情
+      description: 获取指定发票的详细信息
+      operationId: getInvoiceDetail
+      parameters:
+        - name: invoiceNo
+          in: path
+          required: true
+          description: 发票号
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取发票详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Invoice'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices/download:
+    get:
+      tags:
+        - Invoice Download
+      summary: 获取发票下载链接
+      description: 获取指定发票的临时下载链接（带签名）
+      operationId: getInvoiceDownloadUrl
+      parameters:
+        - name: invoiceNo
+          in: query
+          required: true
+          description: 发票号
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取下载链接
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      downloadUrl:
+                        type: string
+                        description: 临时下载链接（有效期30分钟）
+                        example: 'https://oss.example.com/invoices/INV202601001.pdf?signature=xxx&expires=xxx'
+                      fileFormat:
+                        type: string
+                        description: 文件格式
+                        enum: ['PDF', 'OFD']
+                      fileSize:
+                        type: integer
+                        description: 文件大小（字节）
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        description: 链接过期时间
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/invoices/batch-download:
+    post:
+      tags:
+        - Invoice Download
+      summary: 批量下载发票
+      description: 批量获取多个发票的下载链接
+      operationId: batchDownloadInvoices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - invoiceNos
+              properties:
+                invoiceNos:
+                  type: array
+                  description: 发票号列表（最多50个）
+                  items:
+                    type: string
+                  maxItems: 50
+      responses:
+        '200':
+          description: 成功获取下载链接列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: '00000'
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      downloadList:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            invoiceNo:
+                              type: string
+                            downloadUrl:
+                              type: string
+                            fileFormat:
+                              type: string
+                            fileSize:
+                              type: integer
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    InvoiceApplyRequest:
+      type: object
+      required:
+        - billNo
+        - operateType
+        - scope
+        - buyInvoiceHeader
+        - buyTaxNumber
+        - receiverName
+        - receiverPhone
+        - receiverAddress
+      properties:
+        billNo:
+          type: string
+          description: 账单编号
+          example: 'BILL202601001'
+        operateType:
+          type: string
+          description: 操作类型
+          enum: ['normal', 'train']
+          example: 'normal'
+        scope:
+          type: integer
+          description: 开票范围（1-指定企业+日期区间，2-指定数据，3-账单编号）
+          enum: [1, 2, 3]
+        
+        # 企业信息（scope=1时可选）
+        companyId:
+          type: string
+          description: 企业ID
+        companyAppId:
+          type: string
+          description: 易快报企业ID
+        
+        # 时间范围（scope=1时必填）
+        dateType:
+          type: integer
+          description: 日期口径（0-支付时间，1-出行时间，2-支付时间+出行时间）
+          enum: [0, 1, 2]
+        payDateRange:
+          type: array
+          description: 支付时间区间
+          items:
+            type: string
+            format: date
+          minItems: 2
+          maxItems: 2
+        travelDateRange:
+          type: array
+          description: 出行时间区间
+          items:
+            type: string
+            format: date
+          minItems: 2
+          maxItems: 2
+        
+        # 发票配置
+        buyInvoiceHeader:
+          type: string
+          description: 购方抬头
+          minLength: 2
+          maxLength: 100
+        buyTaxNumber:
+          type: string
+          description: 购方税号
+          pattern: '^[A-Z0-9]{15}$|^[A-Z0-9]{18}$|^[A-Z0-9]{20}$'
+        defaultInvoiceHeaderType:
+          type: integer
+          description: 抬头类型（1-统一抬头，2-按账单标识）
+          enum: [1, 2]
+          default: 1
+        titleType:
+          type: integer
+          description: 抬头选择方式（1-读取配置，2-自行填写，3-唯一抬头）
+          enum: [1, 2, 3]
+          default: 1
+        
+        # 收货信息
+        receiverName:
+          type: string
+          description: 收货人
+        receiverPhone:
+          type: string
+          description: 收货电话
+          pattern: '^1[3-9]\d{9}$'
+        receiverAddress:
+          type: string
+          description: 收货地址
+          minLength: 5
+          maxLength: 200
+        
+        # 数据范围（scope=2时必填）
+        dataScope:
+          type: string
+          description: 数据类型
+          enum: ['billId', 'atomId', 'ticketNo']
+        fileUrl:
+          type: string
+          description: 上传文件URL
+        
+        # 备注
+        remark:
+          type: string
+          description: 备注
+          maxLength: 500
+
+    InvoiceBatchListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            list:
+              type: array
+              items:
+                $ref: '#/components/schemas/InvoiceBatch'
+            total:
+              type: integer
+            pageNum:
+              type: integer
+            pageSize:
+              type: integer
+
+    InvoiceBatch:
+      type: object
+      properties:
+        batchId:
+          type: string
+          description: 批次号
+          example: 'BATCH202601001'
+        billNo:
+          type: string
+          description: 关联账单编号
+        companyId:
+          type: string
+          description: 企业ID
+        companyName:
+          type: string
+          description: 企业名称
+        
+        # 批次状态
+        batchStatus:
+          type: integer
+          description: 批次状态（0-待拆分，1-拆分中，2-拆分完成，3-拆分失败，4-开票中，5-开票完成，6-开票失败）
+          enum: [0, 1, 2, 3, 4, 5, 6]
+        
+        # 操作信息
+        operateType:
+          type: string
+          description: 操作类型
+          enum: ['normal', 'train']
+        scope:
+          type: integer
+          description: 开票范围
+          enum: [1, 2, 3]
+        
+        # 统计信息
+        expectedInvoiceCount:
+          type: integer
+          description: 预计开票数量
+        actualInvoiceCount:
+          type: integer
+          description: 实际开票数量
+        
+        # 发票汇总
+        totalAmount:
+          type: number
+          format: double
+          description: 应开发票金额（元）
+        invoicedAmount:
+          type: number
+          format: double
+          description: 已开发票金额（元）
+        vatCount:
+          type: integer
+          description: 专票数量
+        vatAmount:
+          type: number
+          format: double
+          description: 专票金额
+        generalCount:
+          type: integer
+          description: 普票数量
+        generalAmount:
+          type: number
+          format: double
+          description: 普票金额
+        itineraryCount:
+          type: integer
+          description: 行程单数量
+        itineraryAmount:
+          type: number
+          format: double
+          description: 行程单金额
+        
+        # 时间信息
+        createTime:
+          type: string
+          format: date-time
+          description: 创建时间
+        finishTime:
+          type: string
+          format: date-time
+          description: 完成时间
+          nullable: true
+        splitDuration:
+          type: integer
+          description: 拆分耗时（秒）
+          nullable: true
+        
+        # 错误信息
+        errorMessage:
+          type: string
+          description: 失败原因
+          nullable: true
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: '00000'
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            list:
+              type: array
+              items:
+                $ref: '#/components/schemas/Invoice'
+            total:
+              type: integer
+            pageNum:
+              type: integer
+            pageSize:
+              type: integer
+
+    Invoice:
+      type: object
+      properties:
+        # 发票基础信息
+        invoiceNo:
+          type: string
+          description: 发票号
+          example: 'INV202601001'
+        invoiceType:
+          type: string
+          description: 发票类型（001-专票，002-普票，003-行程单，004-火车票）
+          enum: ['001', '002', '003', '004']
+        invoiceCategory:
+          type: string
+          description: 开票类目
+        
+        # 开票主体
+        buyInvoiceHeader:
+          type: string
+          description: 购方抬头
+        buyTaxNumber:
+          type: string
+          description: 购方税号
+        sellerInfo:
+          type: object
+          description: 销方信息
+          properties:
+            name:
+              type: string
+              description: 销方名称
+            taxNumber:
+              type: string
+              description: 销方税号
+            address:
+              type: string
+              description: 销方地址
+            phone:
+              type: string
+              description: 销方电话
+            bank:
+              type: string
+              description: 销方开户行
+            account:
+              type: string
+              description: 销方账号
+        
+        # 金额信息
+        invoiceAmount:
+          type: number
+          format: double
+          description: 发票金额（元）
+        invoiceAmountType:
+          type: string
+          description: 金额类型
+        taxAmount:
+          type: number
+          format: double
+          description: 税额
+        totalAmount:
+          type: number
+          format: double
+          description: 价税合计
+        
+        # 状态信息
+        invoiceStatus:
+          type: integer
+          description: 开票状态（0-开票中，1-开票成功，2-开票失败）
+          enum: [0, 1, 2]
+        shippingStatus:
+          type: integer
+          description: 邮寄状态（0-未邮寄，1-已邮寄）
+          enum: [0, 1]
+        redReversalStatus:
+          type: integer
+          description: 红冲状态（0-未红冲，1-已红冲）
+          enum: [0, 1]
+        
+        # 时间信息
+        invoiceTime:
+          type: string
+          format: date-time
+          description: 开具时间
+        shippingTime:
+          type: string
+          format: date-time
+          description: 邮寄时间
+          nullable: true
+        redReversalTime:
+          type: string
+          format: date-time
+          description: 红冲时间
+          nullable: true
+        
+        # 文件信息
+        invoiceFileUrl:
+          type: string
+          description: 发票文件URL
+        downloadLink:
+          type: string
+          description: 下载链接（带签名，有效期30分钟）
+        fileFormat:
+          type: string
+          description: 文件格式
+          enum: ['PDF', 'OFD']
+        fileSize:
+          type: integer
+          description: 文件大小（字节）
+        
+        # 关联信息
+        orderList:
+          type: array
+          description: 关联订单列表
+          items:
+            type: string
+        batchId:
+          type: string
+          description: 所属批次
+        billNo:
+          type: string
+          description: 关联账单
+        originalInvoiceNo:
+          type: string
+          description: 原始发票号（红冲场景）
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 错误码
+        message:
+          type: string
+          description: 错误信息
+        data:
+          type: object
+          nullable: true
+
+  responses:
+    UnauthorizedError:
+      description: 未授权，Token无效或过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '401'
+            message: '未授权，请重新登录'
+
+    ForbiddenError:
+      description: 禁止访问，权限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '403'
+            message: '权限不足'
+
+    NotFoundError:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '404'
+            message: '资源不存在'
+
+    BadRequestError:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '400'
+            message: '请求参数错误'
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: '500'
+            message: '服务器内部错误'
+
