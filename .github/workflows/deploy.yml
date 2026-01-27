@@ -28,8 +28,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '16'
-          cache: 'npm'
-          cache-dependency-path: 'compMOS-demo/package.json'
       
       - name: 安装依赖
         working-directory: compMOS-demo
