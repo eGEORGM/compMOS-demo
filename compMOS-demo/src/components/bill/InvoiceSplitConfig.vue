@@ -25,7 +25,7 @@
               :key="item.value"
               :label="item.label"
               :value="item.value"
-              :disabled="item.value === form.dimension2"
+              :disabled="item.disabled || item.value === form.dimension2"
             >
             </el-option>
           </el-select>
@@ -44,7 +44,7 @@
               :key="item.value"
               :label="item.label"
               :value="item.value"
-              :disabled="item.value === form.dimension1"
+              :disabled="item.disabled || item.value === form.dimension1"
             >
             </el-option>
           </el-select>
@@ -108,10 +108,12 @@ export default {
         dimension2: ""
       },
       dimensionOptions: [
-        { label: "业务线", value: SPLIT_DIMENSION.BUSINESS_LINE },
-        { label: "法人实体", value: SPLIT_DIMENSION.LEGAL_ENTITY },
-        { label: "支付账户", value: SPLIT_DIMENSION.PAYMENT_ACCOUNT },
-        { label: "部门", value: SPLIT_DIMENSION.DEPARTMENT }
+        { label: "业务线", value: SPLIT_DIMENSION.BUSINESS_LINE, disabled: false },
+        { label: "法人实体", value: SPLIT_DIMENSION.LEGAL_ENTITY, disabled: false },
+        { label: "支付账户", value: SPLIT_DIMENSION.PAYMENT_ACCOUNT, disabled: false },
+        { label: "部门", value: SPLIT_DIMENSION.DEPARTMENT, disabled: false },
+        { label: "出行人", value: SPLIT_DIMENSION.TRAVELER, disabled: false },
+        { label: "最原始订单号", value: SPLIT_DIMENSION.ORIGINAL_ORDER_NO, disabled: true }
       ],
       rules: {
         dimension1: [

@@ -210,6 +210,8 @@ function getDimensionValue(order, dimension) {
       return order.paymentAccount || "默认支付账户";
     case SPLIT_DIMENSION.DEPARTMENT:
       return order.department || "默认部门";
+    case SPLIT_DIMENSION.TRAVELER:
+      return order.travelerName || "未知出行人";
     default:
       return "其他";
   }

@@ -210,7 +210,9 @@ export const SPLIT_DIMENSION = {
   BUSINESS_LINE: "businessLine", // 业务线
   LEGAL_ENTITY: "legalEntity", // 法人实体
   PAYMENT_ACCOUNT: "paymentAccount", // 支付账户
-  DEPARTMENT: "department" // 部门
+  DEPARTMENT: "department", // 部门
+  TRAVELER: "traveler", // 出行人
+  ORIGINAL_ORDER_NO: "originalOrderNo" // 最原始订单号
 };
 
 // 拆分维度名称映射
@@ -218,15 +220,19 @@ export const SPLIT_DIMENSION_NAMES = {
   [SPLIT_DIMENSION.BUSINESS_LINE]: "业务线",
   [SPLIT_DIMENSION.LEGAL_ENTITY]: "法人实体",
   [SPLIT_DIMENSION.PAYMENT_ACCOUNT]: "支付账户",
-  [SPLIT_DIMENSION.DEPARTMENT]: "部门"
+  [SPLIT_DIMENSION.DEPARTMENT]: "部门",
+  [SPLIT_DIMENSION.TRAVELER]: "出行人",
+  [SPLIT_DIMENSION.ORIGINAL_ORDER_NO]: "最原始订单号"
 };
 
 // 拆分维度选项列表
 export const SPLIT_DIMENSION_OPTIONS = [
-  { value: SPLIT_DIMENSION.BUSINESS_LINE, label: "业务线" },
-  { value: SPLIT_DIMENSION.LEGAL_ENTITY, label: "法人实体" },
-  { value: SPLIT_DIMENSION.PAYMENT_ACCOUNT, label: "支付账户" },
-  { value: SPLIT_DIMENSION.DEPARTMENT, label: "部门" }
+  { value: SPLIT_DIMENSION.BUSINESS_LINE, label: "业务线", disabled: false },
+  { value: SPLIT_DIMENSION.LEGAL_ENTITY, label: "法人实体", disabled: false },
+  { value: SPLIT_DIMENSION.PAYMENT_ACCOUNT, label: "支付账户", disabled: false },
+  { value: SPLIT_DIMENSION.DEPARTMENT, label: "部门", disabled: false },
+  { value: SPLIT_DIMENSION.TRAVELER, label: "出行人", disabled: false },
+  { value: SPLIT_DIMENSION.ORIGINAL_ORDER_NO, label: "最原始订单号", disabled: true }
 ];
 
 // 法人实体选项
