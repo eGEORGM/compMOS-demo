@@ -52,8 +52,15 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
-          <el-button icon="el-icon-refresh-left" @click="handleReset">重置</el-button>
+          <el-button 
+            type="primary" 
+            icon="el-icon-search" 
+            @click="handleSearch"
+          >查询</el-button>
+          <el-button 
+            icon="el-icon-refresh-left" 
+            @click="handleReset"
+          >重置</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -65,7 +72,7 @@
           size="small"
           type="primary"
           @click="handleSelectAll"
-          :disabled="totalOrderCount === 0"
+          :disabled="isOperationsDisabled || totalOrderCount === 0"
         >
           选中全部列表 ({{ totalOrderCount }}笔)
         </el-button>
@@ -78,7 +85,7 @@
           size="small"
           icon="el-icon-edit"
           @click="handleBatchUpdate"
-          :disabled="selectedOrders.length === 0"
+          :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
           更新数据
         </el-button>
@@ -87,7 +94,7 @@
           icon="el-icon-check"
           type="success"
           @click="handleMarkAsChecked"
-          :disabled="selectedOrders.length === 0"
+          :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
           标记为已核对
         </el-button>
@@ -95,17 +102,29 @@
           size="small"
           icon="el-icon-close"
           @click="handleUnmarkChecked"
-          :disabled="selectedOrders.length === 0"
+          :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
           取消已核对标记
         </el-button>
-        <el-button size="small" icon="el-icon-setting" @click="handleFieldConfig">
+        <el-button 
+          size="small" 
+          icon="el-icon-setting" 
+          @click="handleFieldConfig"
+        >
           对账单字段配置
         </el-button>
-        <el-button size="small" icon="el-icon-download" @click="handleExportExcel">
+        <el-button 
+          size="small" 
+          icon="el-icon-download" 
+          @click="handleExportExcel"
+        >
           导出Excel
         </el-button>
-        <el-button size="small" icon="el-icon-download" @click="handleExportPDF">
+        <el-button 
+          size="small" 
+          icon="el-icon-download" 
+          @click="handleExportPDF"
+        >
           导出PDF
         </el-button>
       </div>
@@ -121,7 +140,12 @@
       @selection-change="handleSelectionChange"
     >
       <!-- 复选框列 -->
-      <el-table-column type="selection" width="55" fixed="left"></el-table-column>
+      <el-table-column 
+        type="selection" 
+        width="55" 
+        fixed="left"
+        :selectable="() => !isOperationsDisabled"
+      ></el-table-column>
       
       <!-- 核对状态 - 最左边 -->
       <el-table-column
@@ -447,7 +471,8 @@ import {
   CHECK_STATUS_COLORS, 
   LEGAL_ENTITY_OPTIONS,
   DEPARTMENT_OPTIONS,
-  PROJECT_OPTIONS
+  PROJECT_OPTIONS,
+  BILL_STATUS
 } from "@/utils/constants";
 import { formatAmount, formatDate } from "@/utils/format";
 import { showSuccess, showWarning, handleApiError, showError } from "@/utils/errorHandler";
@@ -467,6 +492,10 @@ export default {
     businessType: {
       type: String,
       required: true
+    },
+    billStatus: {
+      type: Number,
+      default: 0
     }
   },
   data() {
@@ -497,6 +526,13 @@ export default {
     };
   },
   computed: {
+    /**
+     * 是否禁用操作（账单确认后禁用）
+     */
+    isOperationsDisabled() {
+      // 账单状态 >= 2（待开票）时禁用操作
+      return this.billStatus >= BILL_STATUS.PENDING_INVOICE;
+    },
     ...mapState("order", ["orderList", "loading"]),
     ...mapState("config", ["fieldConfig"]),
     

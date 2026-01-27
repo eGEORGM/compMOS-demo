@@ -12,6 +12,7 @@
         <order-list-content 
           :bill-no="billNo" 
           :business-type="type"
+          :bill-status="billStatus"
         ></order-list-content>
       </el-tab-pane>
 
@@ -38,6 +39,10 @@ export default {
     billNo: {
       type: String,
       required: true
+    },
+    billStatus: {
+      type: Number,
+      default: 0
     }
   },
   data() {

@@ -120,13 +120,13 @@
           </el-tab-pane>
 
           <!-- 账单明细（包含各业务线子Tab，待确认和开票中状态显示） -->
-          <el-tab-pane
-            v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
-            label="账单明细"
-            name="orders"
-          >
-            <bill-orders-tab :bill-no="billNo"></bill-orders-tab>
-          </el-tab-pane>
+              <el-tab-pane
+                v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
+                label="账单明细"
+                name="orders"
+              >
+                <bill-orders-tab :bill-no="billNo" :bill-status="currentBill.billStatus"></bill-orders-tab>
+              </el-tab-pane>
         </el-tabs>
       </el-card>
     </div>
@@ -799,6 +799,18 @@ export default {
      * 提交开票申请
      */
     async handleSubmitInvoice(invoiceRows) {
+      // 确认提示
+      try {
+        await this.$confirm('请确认当期开票信息无误', '确认提交', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+      } catch (error) {
+        // 用户取消
+        return;
+      }
+      
       this.submitting = true;
       
       try {
