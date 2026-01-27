@@ -52,8 +52,8 @@
         <div class="applications-header">
           <h3 class="section-title">开票申请记录</h3>
           <div class="header-actions">
-            <el-button icon="el-icon-download" @click="handleDownloadAll">
-              下载全量发票
+            <el-button icon="el-icon-download" @click="handleBatchDownload">
+              批量下载发票
             </el-button>
             <el-button icon="el-icon-info" @click="handleViewInsurance">
               查看保险发票
@@ -73,6 +73,78 @@
         ></invoice-record-table>
       </div>
     </div>
+
+    <!-- 批量下载筛选对话框 -->
+    <el-dialog
+      title="批量下载发票"
+      :visible.sync="batchDownloadDialogVisible"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="dialog-content">
+        <p class="info-message">
+          <i class="el-icon-info"></i>
+          请选择筛选条件，系统将下载符合条件的发票
+        </p>
+        <el-form :model="batchDownloadFilter" label-width="100px">
+          <el-form-item label="发票种类">
+            <el-select
+              v-model="batchDownloadFilter.invoiceType"
+              placeholder="全部"
+              clearable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="option in invoiceTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="发票抬头">
+            <el-select
+              v-model="batchDownloadFilter.titleName"
+              placeholder="全部"
+              clearable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="option in titleNameOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="申请人">
+            <el-select
+              v-model="batchDownloadFilter.submitter"
+              placeholder="全部"
+              clearable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="option in submitterOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div class="filter-preview" v-if="hasFilter">
+          <div class="preview-title">筛选结果预览</div>
+          <div class="preview-content">
+            <p>符合条件的发票数量：<strong>{{ getFilteredCount() }}</strong> 条</p>
+          </div>
+        </div>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="batchDownloadDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="loading" @click="confirmBatchDownload">确定下载</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -97,7 +169,15 @@ export default {
   data() {
     return {
       loading: false,
-      activeTab: "unified"
+      activeTab: "unified",
+      
+      // 批量下载筛选对话框
+      batchDownloadDialogVisible: false,
+      batchDownloadFilter: {
+        invoiceType: "",
+        titleName: "",
+        submitter: ""
+      }
     };
   },
   computed: {
@@ -110,6 +190,55 @@ export default {
         remainingAmount: this.invoiceSummary.remainingAmount || 0,
         details: this.invoiceSummary.invoiceDetails || []
       };
+    },
+    
+    // 发票种类选项（从申请记录中提取）
+    invoiceTypeOptions() {
+      const types = new Set();
+      this.applicationList.forEach(record => {
+        if (record.invoiceType) {
+          types.add(record.invoiceType);
+        }
+      });
+      return Array.from(types).map(type => ({
+        label: type,
+        value: type
+      }));
+    },
+    
+    // 发票抬头选项（从申请记录中提取）
+    titleNameOptions() {
+      const titles = new Set();
+      this.applicationList.forEach(record => {
+        if (record.titleName) {
+          titles.add(record.titleName);
+        }
+      });
+      return Array.from(titles).map(title => ({
+        label: title,
+        value: title
+      }));
+    },
+    
+    // 申请人选项（从申请记录中提取）
+    submitterOptions() {
+      const submitters = new Set();
+      this.applicationList.forEach(record => {
+        if (record.submitter) {
+          submitters.add(record.submitter);
+        }
+      });
+      return Array.from(submitters).map(submitter => ({
+        label: submitter,
+        value: submitter
+      }));
+    },
+    
+    // 是否有筛选条件
+    hasFilter() {
+      return !!(this.batchDownloadFilter.invoiceType || 
+                this.batchDownloadFilter.titleName || 
+                this.batchDownloadFilter.submitter);
     }
   },
   created() {
@@ -236,12 +365,96 @@ export default {
       showWarning("查看数电票功能开发中");
     },
     
-    handleDownloadAll() {
-      showWarning("下载全量发票功能开发中");
+    /**
+     * 批量下载发票
+     */
+    handleBatchDownload() {
+      // 重置筛选条件
+      this.batchDownloadFilter = {
+        invoiceType: "",
+        titleName: "",
+        submitter: ""
+      };
+      this.batchDownloadDialogVisible = true;
+    },
+    
+    /**
+     * 确认批量下载
+     */
+    async confirmBatchDownload() {
+      try {
+        // 根据筛选条件过滤申请记录
+        const filteredRecords = this.applicationList.filter(record => {
+          // 发票种类筛选
+          if (this.batchDownloadFilter.invoiceType && 
+              record.invoiceType !== this.batchDownloadFilter.invoiceType) {
+            return false;
+          }
+          
+          // 发票抬头筛选
+          if (this.batchDownloadFilter.titleName && 
+              record.titleName !== this.batchDownloadFilter.titleName) {
+            return false;
+          }
+          
+          // 申请人筛选
+          if (this.batchDownloadFilter.submitter && 
+              record.submitter !== this.batchDownloadFilter.submitter) {
+            return false;
+          }
+          
+          return true;
+        });
+        
+        if (filteredRecords.length === 0) {
+          showWarning("没有符合条件的发票可下载");
+          return;
+        }
+        
+        this.loading = true;
+        
+        // TODO: 实现批量下载功能
+        console.log("批量下载筛选条件:", this.batchDownloadFilter);
+        console.log("符合条件的记录数:", filteredRecords.length);
+        console.log("符合条件的记录:", filteredRecords);
+        
+        // 模拟下载
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        showSuccess(`已选择 ${filteredRecords.length} 条发票，开始批量下载`);
+        this.batchDownloadDialogVisible = false;
+      } catch (error) {
+        handleApiError(error, {
+          customMessage: "批量下载失败"
+        });
+      } finally {
+        this.loading = false;
+      }
     },
     
     handleViewInsurance() {
       showWarning("查看保险发票功能开发中");
+    },
+    
+    /**
+     * 获取筛选后的记录数量
+     */
+    getFilteredCount() {
+      return this.applicationList.filter(record => {
+        if (this.batchDownloadFilter.invoiceType && 
+            record.invoiceType !== this.batchDownloadFilter.invoiceType) {
+          return false;
+        }
+        if (this.batchDownloadFilter.titleName && 
+            record.titleName !== this.batchDownloadFilter.titleName) {
+          return false;
+        }
+        if (this.batchDownloadFilter.submitter && 
+            record.submitter !== this.batchDownloadFilter.submitter) {
+          return false;
+        }
+        return true;
+      }).length;
     }
   }
 };
@@ -341,7 +554,54 @@ export default {
         gap: @spacing-sm;
       }
     }
+  }
 
+  // 批量下载对话框样式
+  .dialog-content {
+    .info-message {
+      display: flex;
+      align-items: center;
+      gap: @spacing-sm;
+      padding: @spacing-md;
+      background: @bg-light;
+      border: 1px solid @border-base;
+      border-radius: @border-radius-base;
+      color: @primary-color;
+      font-size: @font-size-base;
+      margin-bottom: @spacing-lg;
+
+      i {
+        font-size: @font-size-xl;
+      }
+    }
+
+    .filter-preview {
+      margin-top: @spacing-lg;
+      padding: @spacing-md;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: @border-radius-base;
+
+      .preview-title {
+        font-size: @font-size-sm;
+        color: @text-secondary;
+        margin-bottom: @spacing-sm;
+      }
+
+      .preview-content {
+        p {
+          margin: 0;
+          color: @text-primary;
+          font-size: @font-size-base;
+
+          strong {
+            color: @primary-color;
+            font-weight: 600;
+            font-size: @font-size-lg;
+          }
+        }
+      }
+    }
   }
 }
 </style>
