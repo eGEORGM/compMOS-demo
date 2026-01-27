@@ -174,7 +174,7 @@ export function resetDemoStorage() {
 // ====== 配置相关的Storage方法 ======
 
 /**
- * 保存明细设置
+ * 保存明细设置（用于列表页订单明细展示）
  * @param {Object} settings - 明细设置对象
  */
 export function setDetailSettings(settings) {
@@ -187,6 +187,22 @@ export function setDetailSettings(settings) {
  */
 export function getDetailSettings() {
   return getStorage('detail_settings', null);
+}
+
+/**
+ * 保存拆分汇总配置（用于开票页数据拆分，独立存储）
+ * @param {Object} config - 拆分汇总配置对象
+ */
+export function setSplitConfig(config) {
+  setStorage('split_config', config);
+}
+
+/**
+ * 获取拆分汇总配置
+ * @returns {Object|null} 拆分汇总配置对象
+ */
+export function getSplitConfig() {
+  return getStorage('split_config', null);
 }
 
 /**
@@ -210,6 +226,7 @@ export function getFieldConfig() {
  */
 export function clearAll() {
   removeStorage('detail_settings');
+  removeStorage('split_config');
   removeStorage('field_config');
 }
 
@@ -231,6 +248,8 @@ export const storage = {
   resetDemoStorage,
   setDetailSettings,
   getDetailSettings,
+  setSplitConfig,
+  getSplitConfig,
   setFieldConfig,
   getFieldConfig,
   clearAll

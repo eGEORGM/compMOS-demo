@@ -1,7 +1,6 @@
 <template>
   <div class="invoice-record-table">
     <div class="table-header">
-      <h4 class="section-title">发票申请记录</h4>
       <div class="header-actions">
         <el-button 
           v-if="selectedRecords.length > 0"
@@ -9,13 +8,13 @@
           icon="el-icon-download"
           @click="handleBatchDownload"
         >
-          批量下载 ({{ selectedRecords.length }})
+          批量下载
         </el-button>
       </div>
     </div>
 
     <el-table
-      :data="records"
+      :data="paginatedRecords"
       v-loading="loading"
       stripe
       border
@@ -24,13 +23,9 @@
     >
       <el-table-column type="selection" width="55"></el-table-column>
       
-      <el-table-column prop="applicationNo" label="申请编号" width="170"></el-table-column>
-      
       <el-table-column prop="invoiceType" label="发票类型" width="150">
         <template slot-scope="{ row }">
-          <el-tag size="small" :type="getInvoiceTypeColor(row.invoiceType)">
-            {{ row.invoiceType }}
-          </el-tag>
+          {{ row.invoiceType }}
         </template>
       </el-table-column>
       
@@ -48,7 +43,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="titleName" label="发票抬头" width="180">
+      <el-table-column prop="titleName" label="发票抬头" width="200">
         <template slot-scope="{ row }">
           <el-tooltip :content="`税号：${row.taxNumber}`" placement="top">
             <div class="text-ellipsis">{{ row.titleName }}</div>
@@ -56,7 +51,11 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="submitter" label="提交人" width="100"></el-table-column>
+      <el-table-column prop="submitter" label="提交人" width="180">
+        <template slot-scope="{ row }">
+          {{ row.submitter }}
+        </template>
+      </el-table-column>
       
       <el-table-column prop="applyTime" label="申请时间" width="150">
         <template slot-scope="{ row }">
@@ -66,51 +65,47 @@
       
       <el-table-column prop="status" label="状态" width="100">
         <template slot-scope="{ row }">
-          <el-tag size="small" :type="getStatusType(row.status)">
-            {{ getStatusName(row.status) }}
+          <el-tag size="small" :type="getStatusType(row.status || (row.isFlushed ? 'flushed' : 'completed'))">
+            {{ getStatusName(row.status || (row.isFlushed ? 'flushed' : 'completed')) }}
           </el-tag>
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="150" fixed="right">
         <template slot-scope="{ row }">
-          <el-button
-            v-if="row.status === 'completed'"
-            size="mini"
-            icon="el-icon-download"
+          <el-link
+            v-if="row.status === 'completed' || row.status === 'flushed'"
+            type="primary"
+            :underline="false"
             @click="handleDownload(row)"
           >
             下载
-          </el-button>
-          <el-button
+          </el-link>
+          <el-link
             v-if="row.status === 'completed' && !row.isFlushed"
-            size="mini"
             type="warning"
-            icon="el-icon-refresh"
+            :underline="false"
             @click="handleRedFlush(row)"
+            style="margin-left: 8px;"
           >
             红冲
-          </el-button>
-          <el-button
-            v-if="row.status === 'completed' && row.isFlushed"
-            size="mini"
-            type="primary"
-            icon="el-icon-document-add"
-            @click="handleReissue(row)"
-          >
-            换开
-          </el-button>
-          <el-button
-            v-if="row.status === 'pending' || row.status === 'processing'"
-            size="mini"
-            type="info"
-            disabled
-          >
-            处理中
-          </el-button>
+          </el-link>
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination
+        :current-page="currentPage"
+        :page-sizes="[10, 20, 50, 100]"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      ></el-pagination>
+    </div>
 
     <!-- 红冲确认对话框 -->
     <el-dialog
@@ -216,6 +211,8 @@ export default {
       selectedRecords: [],
       currentRecord: null,
       operating: false,
+      currentPage: 1,
+      pageSize: 10,
       
       // 红冲对话框
       redFlushDialogVisible: false,
@@ -245,17 +242,29 @@ export default {
       statusMap: {
         pending: "待处理",
         processing: "处理中",
-        completed: "已完成",
-        failed: "失败"
+        completed: "已开票",
+        failed: "失败",
+        flushed: "已红冲"
       },
       
       statusColorMap: {
         pending: "info",
         processing: "primary",
         completed: "success",
-        failed: "danger"
+        failed: "danger",
+        flushed: "warning"
       }
     };
+  },
+  computed: {
+    total() {
+      return this.records.length;
+    },
+    paginatedRecords() {
+      const start = (this.currentPage - 1) * this.pageSize;
+      const end = start + this.pageSize;
+      return this.records.slice(start, end);
+    }
   },
   methods: {
     formatAmount(amount) {
@@ -370,6 +379,15 @@ export default {
       } else {
         callback();
       }
+    },
+    
+    handleSizeChange(val) {
+      this.pageSize = val;
+      this.currentPage = 1;
+    },
+    
+    handleCurrentChange(val) {
+      this.currentPage = val;
     }
   }
 };
@@ -381,21 +399,20 @@ export default {
 .invoice-record-table {
   .table-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
-    margin-bottom: @spacing-md;
-
-    .section-title {
-      font-size: @font-size-lg;
-      font-weight: 600;
-      color: @text-primary;
-      margin: 0;
-    }
+    margin-bottom: @spacing-sm;
 
     .header-actions {
       display: flex;
       gap: @spacing-sm;
     }
+  }
+
+  .pagination-container {
+    margin-top: @spacing-md;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .text-ellipsis {

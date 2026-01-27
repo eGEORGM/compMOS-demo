@@ -3,181 +3,156 @@
     <!-- 分组提示 -->
     <div v-if="hasGrouping" class="group-hint">
       <i class="el-icon-info"></i>
-      <span>开票信息已按 <strong>{{ groupingDescription }}</strong> 分组展示</span>
+      <span>开票信息已按 <strong>{{ groupingDescription }}</strong> 拆分展示</span>
     </div>
 
-    <el-table 
-      :data="displayData" 
-      border 
+    <el-table
+      :data="localInvoiceRows"
+      border
       style="width: 100%"
-      :row-class-name="getRowClassName"
-      row-key="id"
-      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-      default-expand-all
+      class="invoice-table"
+      :span-method="handleSpanMethod"
     >
-      <el-table-column prop="invoiceType" label="发票种类" width="150" fixed="left">
+      <el-table-column prop="invoiceType" label="发票种类" width="150" align="center">
         <template slot-scope="{ row }">
-          <template v-if="row.isGroup">
-            <strong class="group-label">
-              <i class="el-icon-folder-opened"></i>
-              {{ row.groupLabel }}
-            </strong>
-          </template>
-          <template v-else>
-            <el-select 
-              v-model="row.invoiceType" 
-              placeholder="请选择"
-              size="small"
-              @change="handleRowChange(row)"
-            >
-              <el-option label="增值税普通发票" value="增值税普通发票"></el-option>
-              <el-option label="增值税专用发票" value="增值税专用发票"></el-option>
-              <el-option label="机票电子行程单" value="机票电子行程单"></el-option>
-              <el-option label="火车票电子行程单" value="火车票电子行程单"></el-option>
-            </el-select>
-          </template>
+          {{ row.invoiceType || row.invoiceTypeName || '-' }}
         </template>
       </el-table-column>
       
-      <el-table-column prop="summary" label="发票摘要" width="120">
+      <!-- 动态拆分维度列 -->
+      <el-table-column
+        v-for="(dimension, index) in splitConfig.dimensions || []"
+        :key="`split_dim_${index}`"
+        :label="getDimensionLabel(dimension)"
+        width="120"
+      >
         <template slot-scope="{ row }">
-          <template v-if="!row.isGroup">
-            {{ row.summary }}
-          </template>
+          <span v-if="index === 0">
+            {{ row.splitDimension1 || row.businessLine || '-' }}
+          </span>
+          <span v-else-if="index === 1">
+            {{ row.splitDimension2 || row.legalEntity || '-' }}
+          </span>
         </template>
       </el-table-column>
       
-      <el-table-column prop="amount" label="开票金额" width="120" align="right">
+      <el-table-column prop="summary" label="发票摘要" width="180">
         <template slot-scope="{ row }">
-          <template v-if="row.isGroup">
-            <strong class="group-amount">{{ formatAmount(row.totalAmount) }}</strong>
-          </template>
-          <template v-else>
-            {{ formatAmount(row.amount) }}
-          </template>
+          {{ row.summary || row.invoiceSummary || '-' }}
         </template>
       </el-table-column>
       
-      <el-table-column label="发票抬头" width="200">
+      <el-table-column prop="amount" label="开票金额(CNY)" width="150" align="right">
         <template slot-scope="{ row }">
-          <template v-if="!row.isGroup">
+          <div class="amount-cell">
+            <span>{{ formatAmount(row.amount) }}</span>
+            <el-link type="primary" :underline="false" @click="handleSplit(row)" class="split-link">
+              拆分
+            </el-link>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="发票抬头" width="250">
+        <template slot-scope="{ row }">
+          <div class="title-cell">
             <invoice-title-selector
               v-model="row.titleId"
-              :titles="invoiceTitles"
+              :titles="titles"
               size="small"
               @change="handleTitleChange(row, $event)"
             ></invoice-title-selector>
-          </template>
+            <div class="title-actions">
+              <el-link type="primary" :underline="false" @click="handleAddTitle" class="action-link">
+                新增发票抬头>
+              </el-link>
+              <el-link type="primary" :underline="false" @click="handleTitleDetail(row)" class="action-link">
+                抬头详情
+              </el-link>
+            </div>
+          </div>
         </template>
       </el-table-column>
       
-      <el-table-column label="接收人姓名" width="120">
+      <el-table-column label="收货人信息" width="200">
+        <template slot-scope="{ row }">
+          <el-select
+            v-model="row.receiverId"
+            placeholder="请选择收货人"
+            size="small"
+            @change="handleReceiverChange(row)"
+          >
+            <el-option
+              v-for="receiver in receivers"
+              :key="receiver.id"
+              :label="formatReceiverLabel(receiver)"
+              :value="receiver.id"
+            >
+              <div class="receiver-option">
+                <div>{{ receiver.name }} {{ receiver.phone }}</div>
+                <div class="receiver-email">{{ receiver.email }}</div>
+              </div>
+            </el-option>
+          </el-select>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="规格" width="120">
+        <template slot-scope="{ row }">
+          <el-select
+            v-model="row.specification"
+            placeholder="请选择"
+            size="small"
+          >
+            <el-option label="标准" value="标准"></el-option>
+            <el-option label="大包装" value="大包装"></el-option>
+            <el-option label="小包装" value="小包装"></el-option>
+          </el-select>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="单位" width="100">
+        <template slot-scope="{ row }">
+          <el-select
+            v-model="row.unit"
+            placeholder="请选择"
+            size="small"
+          >
+            <el-option label="元" value="元"></el-option>
+            <el-option label="张" value="张"></el-option>
+            <el-option label="次" value="次"></el-option>
+            <el-option label="人" value="人"></el-option>
+          </el-select>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="数量" width="100">
         <template slot-scope="{ row }">
           <el-input
-            v-if="!row.isGroup"
-            v-model="row.receiverName"
-            placeholder="请输入姓名"
+            v-model.number="row.quantity"
+            type="number"
+            placeholder="请输入数量"
             size="small"
-            :class="{ 'is-error': !row.receiverName }"
-            @change="handleRowChange(row)"
+            :min="1"
+            :max="99999"
+            @change="handleQuantityChange(row)"
           ></el-input>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="接收人电话" width="140">
-        <template slot-scope="{ row }">
-          <el-input
-            v-if="!row.isGroup"
-            v-model="row.receiverPhone"
-            placeholder="请输入电话"
-            size="small"
-            :class="{ 'is-error': !validatePhone(row.receiverPhone) }"
-            @change="handleRowChange(row)"
-          ></el-input>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="接收人邮箱" width="180">
-        <template slot-scope="{ row }">
-          <el-input
-            v-if="!row.isGroup"
-            v-model="row.receiverEmail"
-            placeholder="请输入邮箱"
-            size="small"
-            :class="{ 'is-error': !validateEmail(row.receiverEmail) }"
-            @change="handleRowChange(row)"
-          ></el-input>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="接收地址" width="200">
-        <template slot-scope="{ row }">
-          <el-input
-            v-if="!row.isGroup"
-            v-model="row.receiverAddress"
-            placeholder="请输入地址"
-            size="small"
-            :class="{ 'is-error': !row.receiverAddress || row.receiverAddress.length < 5 }"
-            @change="handleRowChange(row)"
-          ></el-input>
-        </template>
-      </el-table-column>
-      
-      <el-table-column prop="unit" label="单位" width="80">
-        <template slot-scope="{ row }">
-          <template v-if="!row.isGroup">
-            {{ row.unit }}
-          </template>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="数量" width="120">
-        <template slot-scope="{ row }">
-          <template v-if="!row.isGroup">
-            <el-input
-              v-model.number="row.quantity"
-              type="number"
-              placeholder="请输入"
-              size="small"
-              :min="1"
-              :max="99999"
-              :class="{ 'is-error': !validateQuantity(row.quantity) }"
-              @change="handleRowChange(row)"
-            ></el-input>
-            <span v-if="!validateQuantity(row.quantity)" class="error-tip">
-              最大5位数
-            </span>
-          </template>
-        </template>
-      </el-table-column>
-      
-      <el-table-column prop="orderCount" label="订单数" width="90" align="right">
-        <template slot-scope="{ row }">
-          <template v-if="row.isGroup">
-            <strong class="group-count">{{ row.totalOrderCount }}笔</strong>
-          </template>
-          <template v-else>
-            {{ row.orderCount }}笔
-          </template>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="状态" width="80" fixed="right">
-        <template slot-scope="{ row }">
-          <template v-if="!row.isGroup">
-            <el-tag v-if="row.isValid" type="success" size="mini">有效</el-tag>
-            <el-tag v-else type="danger" size="mini">待填</el-tag>
-          </template>
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 提交按钮 -->
+    <div class="form-footer">
+      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="submitting">提交开票</el-button>
+    </div>
   </div>
 </template>
 
 <script>
+import InvoiceTitleSelector from "./InvoiceTitleSelector.vue";
 import { formatAmount } from "@/utils/format";
 import { validatePhone, validateEmail } from "@/utils/validators";
-import InvoiceTitleSelector from "./InvoiceTitleSelector.vue";
 
 export default {
   name: "InvoiceForm",
@@ -185,71 +160,231 @@ export default {
     InvoiceTitleSelector
   },
   props: {
-    billNo: {
-      type: String,
-      required: true
-    },
     invoiceRows: {
       type: Array,
-      default: () => []
-    },
-    invoiceTitles: {
-      type: Array,
-      default: () => []
+      required: true
     },
     splitConfig: {
       type: Object,
-      default: () => ({
-        dimension1: "",
-        dimension2: ""
-      })
+      default: () => ({ dimensions: [] })
+    },
+    titles: {
+      type: Array,
+      default: () => []
+    }
+  },
+  watch: {
+    titles: {
+      immediate: true,
+      handler(newVal) {
+        console.log("InvoiceForm - titles 变化:", newVal);
+      }
     }
   },
   data() {
     return {
-      localInvoiceRows: []
+      localInvoiceRows: [],
+      submitting: false,
+      receivers: [
+        {
+          id: "1",
+          name: "张三",
+          phone: "13800138000",
+          email: "zhangsan@example.com",
+          address: "北京市海淀区中关村大街1号"
+        },
+        {
+          id: "2",
+          name: "李四",
+          phone: "13900139000",
+          email: "lisi@example.com",
+          address: "北京市朝阳区建国路88号"
+        },
+        {
+          id: "3",
+          name: "王五",
+          phone: "13700137000",
+          email: "wangwu@example.com",
+          address: "上海市浦东新区世纪大道1号"
+        }
+      ]
     };
   },
   computed: {
     hasGrouping() {
-      return this.splitConfig && this.splitConfig.dimension1;
+      return this.splitConfig && this.splitConfig.dimensions && this.splitConfig.dimensions.length > 0;
     },
-    
     groupingDescription() {
       if (!this.hasGrouping) return "";
+      const { SPLIT_DIMENSION_NAMES } = require("@/utils/constants");
+      return this.splitConfig.dimensions
+        .map(d => SPLIT_DIMENSION_NAMES[d] || d)
+        .join(" 和 ");
+    },
+    // 计算每个发票种类的行数，用于合并单元格
+    invoiceTypeSpanMap() {
+      const spanMap = new Map();
+      const typeIndexMap = new Map();
       
-      const dimensionNames = {
-        BUSINESS_LINE: "业务线",
-        LEGAL_ENTITY: "法人实体",
-        PAYMENT_ACCOUNT: "支付账户",
-        DEPARTMENT: "部门"
-      };
+      this.localInvoiceRows.forEach((row, index) => {
+        const invoiceType = row.invoiceType || row.invoiceTypeName || '其他';
+        
+        if (!typeIndexMap.has(invoiceType)) {
+          // 记录该发票种类首次出现的索引
+          typeIndexMap.set(invoiceType, index);
+          spanMap.set(index, { rowspan: 1, colspan: 1 });
+        } else {
+          // 该发票种类已出现过，增加首行的 rowspan
+          const firstIndex = typeIndexMap.get(invoiceType);
+          spanMap.get(firstIndex).rowspan += 1;
+          // 当前行设置为不显示
+          spanMap.set(index, { rowspan: 0, colspan: 0 });
+        }
+      });
       
-      let desc = dimensionNames[this.splitConfig.dimension1] || this.splitConfig.dimension1;
-      if (this.splitConfig.dimension2) {
-        desc += " → " + (dimensionNames[this.splitConfig.dimension2] || this.splitConfig.dimension2);
-      }
-      return desc;
+      return spanMap;
     },
     
-    displayData() {
-      if (!this.hasGrouping) {
-        // 无分组，直接展示
-        return this.localInvoiceRows.map((row, index) => ({
-          ...row,
-          id: `row_${index}`
-        }));
+    // 计算第一个拆分维度的合并范围（在每个发票种类内部）
+    firstDimensionSpanMap() {
+      const spanMap = new Map();
+      const dimensions = (this.splitConfig && this.splitConfig.dimensions) ? this.splitConfig.dimensions : [];
+      
+      if (dimensions.length === 0) {
+        return spanMap;
       }
       
-      // 有分组，构建树形结构
-      return this.buildGroupedData();
+      // 按发票种类分组
+      const typeGroups = {};
+      this.localInvoiceRows.forEach((row, index) => {
+        const invoiceType = row.invoiceType || row.invoiceTypeName || '其他';
+        if (!typeGroups[invoiceType]) {
+          typeGroups[invoiceType] = [];
+        }
+        typeGroups[invoiceType].push({ row, index });
+      });
+      
+      // 在每个发票种类内部，按第一个拆分维度分组
+      Object.keys(typeGroups).forEach(invoiceType => {
+        const rows = typeGroups[invoiceType];
+        const dimensionValueMap = new Map();
+        
+        rows.forEach(({ row, index }) => {
+          const dimensionValue = row.splitDimension1 || row.businessLine || row.legalEntity || '其他';
+          
+          if (!dimensionValueMap.has(dimensionValue)) {
+            // 记录该维度值首次出现的索引（相对于该发票种类组）
+            dimensionValueMap.set(dimensionValue, index);
+            spanMap.set(index, { rowspan: 1, colspan: 1 });
+          } else {
+            // 该维度值已出现过，增加首行的 rowspan
+            const firstIndex = dimensionValueMap.get(dimensionValue);
+            spanMap.get(firstIndex).rowspan += 1;
+            // 当前行设置为不显示
+            spanMap.set(index, { rowspan: 0, colspan: 0 });
+          }
+        });
+      });
+      
+      return spanMap;
     }
   },
   watch: {
     invoiceRows: {
       immediate: true,
-      handler(val) {
-        this.localInvoiceRows = JSON.parse(JSON.stringify(val));
+      deep: true,
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          console.log("InvoiceForm - invoiceRows 变化:", newVal);
+          // 深拷贝数据，创建新对象而不是修改原对象
+          this.localInvoiceRows = newVal.map((row, index) => {
+            // 创建新对象，避免修改原始数据
+            const newRow = { ...row };
+            
+            // 确保发票类型字段正确
+            if (!newRow.invoiceType && newRow.invoiceTypeName) {
+              newRow.invoiceType = newRow.invoiceTypeName;
+            }
+            if (!newRow.invoiceTypeName && newRow.invoiceType) {
+              newRow.invoiceTypeName = newRow.invoiceType;
+            }
+            if (!newRow.invoiceType && !newRow.invoiceTypeName) {
+              newRow.invoiceType = "增值税普通发票";
+              newRow.invoiceTypeName = "增值税普通发票";
+            }
+            
+            // 确保摘要字段
+            if (!newRow.summary && newRow.invoiceSummary) {
+              newRow.summary = newRow.invoiceSummary;
+            }
+            if (!newRow.invoiceSummary && newRow.summary) {
+              newRow.invoiceSummary = newRow.summary;
+            }
+            if (!newRow.summary && !newRow.invoiceSummary) {
+              newRow.summary = "全部订单";
+              newRow.invoiceSummary = "全部订单";
+            }
+            
+            // 确保拆分维度字段
+            if (!newRow.splitDimension1 && newRow.businessLine) {
+              newRow.splitDimension1 = newRow.businessLine;
+            }
+            if (!newRow.splitDimension2 && newRow.legalEntity) {
+              newRow.splitDimension2 = newRow.legalEntity;
+            }
+            if (!newRow.businessLine && newRow.splitDimension1) {
+              newRow.businessLine = newRow.splitDimension1;
+            }
+            if (!newRow.legalEntity && newRow.splitDimension2) {
+              newRow.legalEntity = newRow.splitDimension2;
+            }
+            
+            // 处理抬头信息
+            if (newRow.invoiceTitle && typeof newRow.invoiceTitle === 'object') {
+              newRow.titleId = newRow.invoiceTitle.titleId || newRow.titleId || "";
+              newRow.titleName = newRow.invoiceTitle.titleName || newRow.titleName || "";
+              newRow.taxNumber = newRow.invoiceTitle.taxNumber || newRow.taxNumber || "";
+            }
+            if (!newRow.titleId && this.titles && this.titles.length > 0) {
+              const defaultTitle = this.titles.find(t => t.isDefault) || this.titles[0];
+              if (defaultTitle) {
+                newRow.titleId = defaultTitle.titleId;
+                newRow.titleName = defaultTitle.titleName;
+                newRow.taxNumber = defaultTitle.taxNumber;
+              }
+            }
+            
+            // 处理接收人信息
+            if (newRow.recipient && typeof newRow.recipient === 'object') {
+              newRow.receiverId = newRow.recipient.id || newRow.receiverId || "";
+              newRow.receiverName = newRow.recipient.name || newRow.receiverName || "";
+              newRow.receiverPhone = newRow.recipient.phone || newRow.receiverPhone || "";
+              newRow.receiverEmail = newRow.recipient.email || newRow.receiverEmail || "";
+              newRow.receiverAddress = newRow.recipient.address || newRow.receiverAddress || "";
+            }
+            if (!newRow.receiverId && this.receivers && this.receivers.length > 0) {
+              const defaultReceiver = this.receivers[0];
+              newRow.receiverId = defaultReceiver.id;
+              newRow.receiverName = defaultReceiver.name;
+              newRow.receiverPhone = defaultReceiver.phone;
+              newRow.receiverEmail = defaultReceiver.email;
+              newRow.receiverAddress = defaultReceiver.address;
+            }
+            
+            // 确保其他字段有默认值
+            if (!newRow.unit) newRow.unit = "元";
+            if (!newRow.quantity) newRow.quantity = 1;
+            if (!newRow.orderCount) newRow.orderCount = 0;
+            if (!newRow.specification) newRow.specification = "";
+            if (newRow.isValid === undefined) newRow.isValid = false;
+            if (newRow.amount === undefined || newRow.amount === null) newRow.amount = 0;
+            if (!newRow.id) newRow.id = `invoice_row_${index}`;
+            
+            return newRow;
+          });
+          
+          console.log("InvoiceForm - localInvoiceRows 处理后:", this.localInvoiceRows);
+        }
       }
     }
   },
@@ -273,155 +408,192 @@ export default {
       return quantity >= 1 && quantity <= 99999;
     },
     
-    getRowClassName({ row }) {
-      return row.isGroup ? 'group-row' : '';
+    getDimensionLabel(dimension) {
+      const { SPLIT_DIMENSION_NAMES } = require("@/utils/constants");
+      return SPLIT_DIMENSION_NAMES[dimension] || dimension;
     },
     
-    buildGroupedData() {
-      // 按splitDimension1分组
-      const groups = {};
+    // 合并单元格方法
+    handleSpanMethod({ row, column, rowIndex, columnIndex }) {
+      const dimensions = (this.splitConfig && this.splitConfig.dimensions) ? this.splitConfig.dimensions : [];
+      const dimensionsCount = dimensions.length;
       
-      this.localInvoiceRows.forEach((row, index) => {
-        const groupKey = row.splitDimension1 || "其他";
-        
-        if (!groups[groupKey]) {
-          groups[groupKey] = {
-            id: `group_${groupKey}`,
-            isGroup: true,
-            groupLabel: groupKey,
-            totalAmount: 0,
-            totalOrderCount: 0,
-            hasChildren: true,
-            children: []
-          };
+      // 第一列：发票种类（columnIndex === 0）- 合并
+      if (columnIndex === 0) {
+        const spanInfo = this.invoiceTypeSpanMap.get(rowIndex);
+        if (spanInfo) {
+          return spanInfo;
         }
-        
-        groups[groupKey].totalAmount += row.amount || 0;
-        groups[groupKey].totalOrderCount += row.orderCount || 0;
-        groups[groupKey].children.push({
-          ...row,
-          id: `row_${index}`
-        });
-      });
-      
-      return Object.values(groups);
-    },
-    
-    handleRowChange(row) {
-      if (row.isGroup) return;
-      
-      // 验证当前行
-      row.isValid = this.validateRow(row);
-      
-      // 触发更新事件
-      this.$emit("update", this.localInvoiceRows);
-    },
-    
-    handleTitleChange(row, titleData) {
-      if (titleData) {
-        row.titleName = titleData.titleName;
-        row.taxNumber = titleData.taxNumber;
-        row.address = titleData.address;
-        row.phone = titleData.phone;
-        row.bankName = titleData.bankName;
-        row.bankAccount = titleData.bankAccount;
       }
       
-      this.handleRowChange(row);
+      // 第一个拆分维度列（columnIndex === 1）- 合并（如果不是末级）
+      if (columnIndex === 1 && dimensionsCount > 1) {
+        const spanInfo = this.firstDimensionSpanMap.get(rowIndex);
+        if (spanInfo) {
+          return spanInfo;
+        }
+      }
+      
+      // 其他列（包括末级拆分维度）不合并
+      return { rowspan: 1, colspan: 1 };
+    },
+    
+    formatReceiverLabel(receiver) {
+      return `${receiver.name} - ${receiver.phone}`;
+    },
+    
+    handleQuantityChange(row) {
+      if (row.quantity < 1) {
+        row.quantity = 1;
+      }
+      if (row.quantity > 99999) {
+        row.quantity = 99999;
+      }
+      console.log("数量改变:", row);
+    },
+    
+    handleSplit(row) {
+      // TODO: 实现拆分逻辑
+      console.log("拆分:", row);
+      this.$message.info("拆分功能开发中");
+    },
+    
+    handleAddTitle() {
+      // TODO: 实现新增发票抬头
+      console.log("新增发票抬头");
+      this.$message.info("新增发票抬头功能开发中");
+    },
+    
+    handleTitleDetail(row) {
+      // TODO: 实现查看抬头详情
+      console.log("查看抬头详情:", row);
+      this.$message.info("抬头详情功能开发中");
+    },
+    
+    handleTitleChange(row, titleId) {
+      const title = this.titles.find(t => t.titleId === titleId);
+      if (title) {
+        row.titleId = title.titleId;
+        row.titleName = title.titleName;
+        row.taxNumber = title.taxNumber;
+      }
+      console.log("发票抬头改变:", row);
+    },
+    
+    handleReceiverChange(row) {
+      const receiver = this.receivers.find(r => r.id === row.receiverId);
+      if (receiver) {
+        row.receiverId = receiver.id;
+        row.receiverName = receiver.name;
+        row.receiverPhone = receiver.phone;
+        row.receiverEmail = receiver.email;
+        row.receiverAddress = receiver.address;
+      }
+      console.log("收货人改变:", row);
     },
     
     validateRow(row) {
-      if (row.isGroup) return true;
-      
-      return (
-        row.invoiceType &&
-        row.titleId &&
-        row.receiverName &&
-        this.validatePhone(row.receiverPhone) &&
-        this.validateEmail(row.receiverEmail) &&
-        row.receiverAddress &&
-        row.receiverAddress.length >= 5 &&
-        this.validateQuantity(row.quantity)
-      );
+      if (!row.invoiceType) {
+        this.$message.warning("请选择发票种类");
+        return false;
+      }
+      if (!row.amount || row.amount <= 0) {
+        this.$message.warning("开票金额必须大于0");
+        return false;
+      }
+      if (!row.titleId) {
+        this.$message.warning("请选择发票抬头");
+        return false;
+      }
+      if (!row.receiverId) {
+        this.$message.warning("请选择收货人");
+        return false;
+      }
+      if (!row.quantity || row.quantity < 1) {
+        this.$message.warning("数量必须大于等于1");
+        return false;
+      }
+      return true;
     },
     
-    validate() {
-      return this.localInvoiceRows.every(row => row.isValid);
+    handleCancel() {
+      this.$emit("cancel");
+    },
+    
+    handleSubmit() {
+      // 验证所有行
+      for (let row of this.localInvoiceRows) {
+        if (!this.validateRow(row)) {
+          return;
+        }
+      }
+      
+      this.$emit("submit", this.localInvoiceRows);
     }
   }
 };
 </script>
 
 <style lang="less" scoped>
-@import "~@/assets/styles/variables.less";
+@import "@/assets/styles/variables.less";
 
 .invoice-form {
   .group-hint {
-    display: flex;
-    align-items: center;
-    gap: @spacing-sm;
-    padding: @spacing-md;
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: @border-radius-base;
-    color: @primary-color;
-    font-size: @font-size-base;
     margin-bottom: @spacing-md;
-
+    padding: @spacing-sm @spacing-md;
+    background: @bg-light;
+    border-left: 3px solid @primary-color;
+    border-radius: @border-radius-base;
+    
     i {
-      font-size: @font-size-xl;
+      color: @primary-color;
+      margin-right: @spacing-xs;
     }
-
+    
     strong {
-      font-weight: 600;
       color: @primary-color;
     }
   }
-
-  .group-label {
-    display: flex;
-    align-items: center;
-    gap: @spacing-xs;
-    color: @primary-color;
-    font-size: @font-size-lg;
-    font-weight: 600;
-
-    i {
-      font-size: @font-size-xl;
-    }
-  }
-
-  .group-amount,
-  .group-count {
-    color: @primary-color;
-    font-size: @font-size-lg;
-    font-weight: 600;
-  }
-
-  /deep/ .el-table {
-    .group-row {
-      background-color: #f0f9ff !important;
+  
+  .invoice-table {
+    margin-bottom: @spacing-lg;
+    
+    .amount-cell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       
-      td {
-        font-weight: 600;
+      .split-link {
+        font-size: 12px;
       }
     }
-
-    .el-input {
-      &.is-error {
-        .el-input__inner {
-          border-color: @danger-color;
+    
+    .title-cell {
+      .title-actions {
+        display: flex;
+        gap: @spacing-sm;
+        margin-top: @spacing-xs;
+        
+        .action-link {
+          font-size: 12px;
         }
       }
     }
+    
+    .receiver-option {
+      .receiver-email {
+        font-size: 12px;
+        color: @text-secondary;
+      }
+    }
   }
-
-  .error-tip {
-    color: @danger-color;
-    font-size: @font-size-sm;
-    margin-top: @spacing-xs;
-    display: block;
+  
+  .form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: @spacing-md;
+    padding-top: @spacing-md;
+    border-top: 1px solid @border-base;
   }
 }
 </style>
-

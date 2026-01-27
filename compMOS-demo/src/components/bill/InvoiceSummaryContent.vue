@@ -1,8 +1,68 @@
 <template>
   <div class="invoice-summary-content">
     <div v-loading="loading">
+      <!-- 顶部：开票汇总标题 -->
+      <div class="summary-header">
+        <h2 class="page-title">开票汇总</h2>
+      </div>
+
+      <!-- 开票金额汇总 -->
+      <div class="invoice-amount-summary">
+        <div class="amount-cards">
+          <div class="amount-card">
+            <div class="amount-label">应开票金额</div>
+            <div class="amount-value">{{ formatAmount(summary.totalAmount) }}</div>
+          </div>
+          <div class="amount-card">
+            <div class="amount-label">已开票金额</div>
+            <div class="amount-value">{{ formatAmount(summary.invoicedAmount) }}</div>
+          </div>
+          <div class="amount-card remaining-amount-card">
+            <div class="amount-label">还可提交金额</div>
+            <div class="amount-value">{{ formatAmount(summary.remainingAmount) }}</div>
+          </div>
+        </div>
+
+        <!-- 详细金额明细表格 -->
+        <div class="amount-details-table">
+          <el-table :data="summary.details" border size="small" style="width: 100%">
+            <el-table-column prop="type" label="发票种类" width="150"></el-table-column>
+            <el-table-column prop="summary" label="发票摘要" width="150"></el-table-column>
+            <el-table-column prop="shouldAmount" label="应开票金额" width="130" align="right">
+              <template slot-scope="{ row }">
+                {{ formatAmount(row.shouldAmount) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="invoicedAmount" label="已开票金额" width="130" align="right">
+              <template slot-scope="{ row }">
+                {{ formatAmount(row.invoicedAmount) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="remainingAmount" label="还可提交金额" width="130" align="right">
+              <template slot-scope="{ row }">
+                {{ formatAmount(row.remainingAmount) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+
       <!-- 开票申请记录 -->
       <div class="invoice-applications">
+        <div class="applications-header">
+          <h3 class="section-title">开票申请记录</h3>
+          <div class="header-actions">
+            <el-button icon="el-icon-download" @click="handleDownloadAll">
+              下载全量发票
+            </el-button>
+            <el-button icon="el-icon-info" @click="handleViewInsurance">
+              查看保险发票
+            </el-button>
+          </div>
+        </div>
+
+
+        <!-- 申请记录表格 -->
         <invoice-record-table
           :records="applicationList"
           :loading="loading"
@@ -35,11 +95,12 @@ export default {
   },
   data() {
     return {
-      loading: false
+      loading: false,
+      activeTab: "unified"
     };
   },
   computed: {
-    ...mapState("invoice", ["invoiceSummary", "applicationList", "invoiceList", "invoiceTitles"]),
+    ...mapState("invoice", ["invoiceSummary", "applicationList", "invoiceTitles"]),
     
     summary() {
       return {
@@ -55,6 +116,7 @@ export default {
   },
   methods: {
     ...mapActions("invoice", [
+      "fetchInvoiceSummary",
       "fetchInvoiceApplications",
       "downloadInvoice",
       "redFlushInvoice",
@@ -64,7 +126,10 @@ export default {
     async loadData() {
       this.loading = true;
       try {
-        await this.fetchInvoiceApplications(this.billNo);
+        await Promise.all([
+          this.fetchInvoiceSummary(this.billNo),
+          this.fetchInvoiceApplications(this.billNo)
+        ]);
       } catch (error) {
         handleApiError(error, {
           customMessage: "加载开票数据失败"
@@ -164,6 +229,18 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    
+    handleViewElectronicTickets() {
+      showWarning("查看数电票功能开发中");
+    },
+    
+    handleDownloadAll() {
+      showWarning("下载全量发票功能开发中");
+    },
+    
+    handleViewInsurance() {
+      showWarning("查看保险发票功能开发中");
     }
   }
 };
@@ -173,144 +250,97 @@ export default {
 @import "~@/assets/styles/variables.less";
 
 .invoice-summary-content {
-  .invoice-amounts {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: @spacing-xl;
-    padding: @spacing-lg;
-    background: @bg-light;
-    border-radius: @border-radius-base;
-
-    .amount-item {
-      text-align: center;
-      flex: 1;
-
-      &.highlighted {
-        background: linear-gradient(135deg, @primary-color 0%, #66b1ff 100%);
-        color: @text-white;
-        border-radius: @border-radius-base;
-        padding: @spacing-md;
-      }
-
-      .amount-label {
-        font-size: @font-size-base;
-        color: @text-secondary;
-        margin-bottom: @spacing-sm;
-      }
-
-      &.highlighted .amount-label {
-        color: @text-white;
-        opacity: 0.9;
-      }
-
-      .amount-value {
-        font-size: 28px;
-        font-weight: 600;
-        color: @primary-color;
-      }
-
-      &.highlighted .amount-value {
-        color: @text-white;
-      }
-    }
-  }
-
-  .section-title {
-    font-size: @font-size-lg;
-    font-weight: 600;
-    color: @text-primary;
-    margin-bottom: @spacing-md;
-    padding-bottom: @spacing-sm;
-    border-bottom: 2px solid @border-base;
-  }
-
-  .invoice-details,
-  .invoice-titles,
-  .invoice-applications,
-  .invoice-list {
-    margin-bottom: @spacing-xl;
-  }
-
-  .title-header,
-  .application-header {
+  .summary-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: @spacing-md;
+    margin-bottom: @spacing-lg;
 
-    .section-title {
-      margin-bottom: 0;
-      border-bottom: none;
-    }
-
-    .title-actions,
-    .application-actions {
-      display: flex;
-      gap: @spacing-sm;
+    .page-title {
+      font-size: @font-size-xl;
+      font-weight: 600;
+      color: @text-primary;
+      margin: 0;
     }
   }
 
-  .title-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: @spacing-md;
+  .invoice-amount-summary {
+    background: @bg-white;
+    border-radius: @border-radius-base;
+    padding: @spacing-lg;
+    margin-bottom: @spacing-xl;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
-    .title-card {
-      position: relative;
-      background: @bg-white;
-      border: 2px solid @border-base;
-      border-radius: @border-radius-base;
-      padding: @spacing-md;
-      transition: all 0.3s;
+    .amount-cards {
+      display: flex;
+      align-items: center;
+      gap: @spacing-lg;
+      margin-bottom: @spacing-lg;
 
-      &:hover {
-        border-color: @primary-color;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-      }
+      .amount-card {
+        flex: 1;
+        padding: @spacing-lg;
+        background: @bg-light;
+        border-radius: @border-radius-base;
+        text-align: center;
 
-      &.is-default {
-        border-color: @success-color;
-        background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
-      }
-
-      .title-badge {
-        position: absolute;
-        top: @spacing-sm;
-        right: @spacing-sm;
-      }
-
-      .title-main {
-        .title-name {
-          font-size: @font-size-lg;
-          font-weight: 600;
-          color: @text-primary;
+        .amount-label {
+          font-size: @font-size-base;
+          color: @text-secondary;
           margin-bottom: @spacing-sm;
         }
 
-        .title-info {
-          .info-row {
-            display: flex;
-            margin-bottom: @spacing-xs;
-            font-size: @font-size-sm;
-
-            &:last-child {
-              margin-bottom: 0;
-            }
-
-            .label {
-              color: @text-secondary;
-              min-width: 70px;
-            }
-
-            .value {
-              flex: 1;
-              color: @text-primary;
-              word-break: break-all;
-            }
-          }
+        .amount-value {
+          font-size: 28px;
+          font-weight: 600;
+          color: @text-primary;
         }
       }
+
+      .remaining-amount-card {
+        background: #409eff; // 蓝色背景
+        
+        .amount-label {
+          color: #ffffff; // 白色文字
+        }
+        
+        .amount-value {
+          color: #ffffff; // 白色文字
+        }
+      }
+
     }
+
+    .amount-details-table {
+      margin-top: @spacing-lg;
+    }
+  }
+
+  .invoice-applications {
+    background: @bg-white;
+    border-radius: @border-radius-base;
+    padding: @spacing-lg;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    .applications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: @spacing-sm;
+
+      .section-title {
+        font-size: @font-size-lg;
+        font-weight: 600;
+        color: @text-primary;
+        margin: 0;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: @spacing-sm;
+      }
+    }
+
   }
 }
 </style>

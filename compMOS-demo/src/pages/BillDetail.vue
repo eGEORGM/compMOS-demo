@@ -17,12 +17,30 @@
       <!-- 流程步骤条 -->
       <el-card class="steps-card">
         <el-steps :active="currentStep" finish-status="success" align-center>
-          <el-step title="确认账单"></el-step>
-          <el-step title="开票"></el-step>
+          <el-step title="确认账单">
+            <template v-if="currentBill && currentBill.confirmTime">
+              <div slot="description" class="step-description">
+                确认日期: {{ formatDate(currentBill.confirmTime, 'YYYY-MM-DD') }}
+              </div>
+            </template>
+          </el-step>
+          <el-step title="开票">
+            <template v-if="currentBill && currentBill.billStatus === BILL_STATUS.INVOICING">
+              <div slot="description" class="step-description">
+                {{ invoicingSubStatus }}
+              </div>
+            </template>
+          </el-step>
           <el-step title="付款"></el-step>
           <el-step title="已结清"></el-step>
         </el-steps>
-      </el-card>
+    </el-card>
+
+      <!-- 拆分配置提示条：未配置时提示用户配置拆分维度 -->
+      <div v-if="!splitConfigured" class="split-config-banner">
+        <span>建议配置拆分汇总维度以更准确地生成开票信息</span>
+        <el-button type="primary" size="mini" @click="openSplitConfig">立即配置</el-button>
+      </div>
 
       <!-- 日期和操作区域 -->
       <el-card class="action-card">
@@ -42,8 +60,7 @@
               确认账单
             </el-button>
             <!-- 开票中状态：一键开票和撤销确认 -->
-            <template v-else-if="currentBill.billStatus === BILL_STATUS.INVOICING">
-              <el-button type="primary" @click="handleApplyInvoice">一键开票</el-button>
+            <template v-else-if="showInvoiceForm">
               <el-button @click="handleCancelConfirm">撤销确认</el-button>
             </template>
             <!-- 待付款状态：显示开票完成 -->
@@ -65,49 +82,21 @@
           <!-- 开票表单模式 -->
           <el-card v-if="showInvoiceForm" class="tabs-card">
             <div class="invoice-apply-header">
-              <el-button icon="el-icon-arrow-left" @click="exitInvoiceForm" size="small">
-                返回账单详情
-              </el-button>
-              <h3 class="section-title">填写开票信息</h3>
+              <h3 class="section-title">开票信息表</h3>
             </div>
             
             <div v-loading="invoiceFormLoading" class="invoice-apply-content">
-              <!-- 拆分汇总按钮 -->
-              <div class="action-section">
-                <el-button icon="el-icon-folder-opened" @click="handleDetailSettings">
-                  拆分汇总
-                </el-button>
-              </div>
-
               <!-- 开票信息表单 -->
               <invoice-form
                 ref="invoiceForm"
                 :bill-no="billNo"
                 :invoice-rows="invoiceRows"
-                :invoice-titles="invoiceTitles"
+                :titles="invoiceTitles"
                 :split-config="splitConfig"
                 @update="handleInvoiceFormUpdate"
+                @cancel="handleCancelConfirmFromInvoice"
+                @submit="handleSubmitInvoice"
               ></invoice-form>
-
-              <!-- 底部操作区 -->
-              <div class="invoice-footer-actions">
-                <div class="summary-info">
-                  <span class="summary-label">共</span>
-                  <span class="summary-value">{{ invoiceRowCount }}</span>
-                  <span class="summary-label">行开票信息，总金额</span>
-                  <span class="summary-value highlight">{{ formatAmount(invoiceTotalAmount) }}</span>
-                  <span class="summary-label">元</span>
-                </div>
-                <el-button
-                  type="primary"
-                  size="large"
-                  :loading="submitting"
-                  :disabled="!canSubmitInvoice"
-                  @click="handleSubmitInvoice"
-                >
-                  申请开票
-                </el-button>
-              </div>
             </div>
           </el-card>
           
@@ -242,7 +231,7 @@
 <script>
 import { mapState, mapActions, mapGetters } from "vuex";
 import { BILL_STATUS, BILL_STATUS_NAMES, BILL_STATUS_COLORS } from "@/utils/constants";
-import { formatAmount, formatBillCycle } from "@/utils/format";
+import { formatAmount, formatBillCycle, formatDate } from "@/utils/format";
 import { showSuccess, showWarning, handleApiError } from "@/utils/errorHandler";
 import BillSummaryContent from "@/components/bill/BillSummaryContent.vue";
 import BillOrdersTab from "@/components/bill/BillOrdersTab.vue";
@@ -284,6 +273,11 @@ export default {
   computed: {
     ...mapState("bill", ["currentBill", "loading"]),
     ...mapState("order", ["orderList"]),
+    // 是否已经配置拆分汇总（独立判断，不依赖明细设置）
+    splitConfigured() {
+      const splitConfig = this.$store.state.config.splitConfig;
+      return splitConfig && splitConfig.dimensions && splitConfig.dimensions.length > 0;
+    },
     
     billSummary() {
       return this.currentBill && this.currentBill.summary;
@@ -317,17 +311,48 @@ export default {
     },
     
     /**
+     * 开票阶段的子状态描述
+     */
+    invoicingSubStatus() {
+      if (this.showInvoiceForm) {
+        return '填写开票信息';
+      } else if (this.activeTab === 'invoice') {
+        return '开票汇总';
+      }
+      return '';
+    },
+    
+    /**
      * 是否可以提交开票申请
      */
     canSubmitInvoice() {
-      return this.invoiceRowCount > 0 && this.invoiceTotalAmount > 0;
-    }
-  },
-  created() {
-    this.loadBillDetail();
-    this.initActiveTab();
-    this.initSplitConfig();
-  },
+      if (this.invoiceRowCount === 0 || this.invoiceTotalAmount === 0) {
+        return false;
+      }
+      
+      // 检查所有开票行是否都有效（必填字段都已填写）
+      const validRows = this.invoiceRows.filter(row => {
+        // 跳过分组行
+        if (row.isGroup) return true;
+        
+        // 检查必填字段
+        const hasInvoiceType = !!(row.invoiceType || row.invoiceTypeName);
+        const hasTitle = !!(row.titleId && row.titleName);
+        const hasReceiver = !!(row.receiverId && row.receiverName && row.receiverPhone && row.receiverEmail && row.receiverAddress);
+        const hasValidQuantity = row.quantity >= 1 && row.quantity <= 99999;
+        
+        return hasInvoiceType && hasTitle && hasReceiver && hasValidQuantity;
+      });
+      
+      return validRows.length === this.invoiceRowCount;
+      }
+    },
+    async created() {
+      await this.loadBillDetail();
+      await this.checkAndRestoreInvoicingState();
+      this.initActiveTab();
+      this.initSplitConfig();
+    },
   methods: {
     ...mapActions("bill", ["fetchBillDetail", "confirmBill", "cancelConfirm"]),
     ...mapActions("order", ["fetchOrderList"]),
@@ -343,24 +368,90 @@ export default {
         handleApiError(error, {
           customMessage: "加载账单详情失败"
         });
+  }
+},
+  
+    /**
+     * 检查并恢复开票状态（重新进入页面时）
+     */
+    async checkAndRestoreInvoicingState() {
+      // 如果账单处于开票中状态
+      if (this.currentBill && this.currentBill.billStatus === BILL_STATUS.INVOICING) {
+        try {
+          // 获取开票申请记录
+          const mockApi = require("@/mock/index").default;
+          const response = await mockApi.getInvoiceApplications(this.billNo);
+          const hasApplications = response && response.data && response.data.list && response.data.list.length > 0;
+          
+          console.log("检查开票状态 - billStatus:", this.currentBill.billStatus);
+          console.log("检查开票状态 - hasApplications:", hasApplications);
+          
+          // 如果还未提交过开票申请，说明处于子状态1（填写开票信息）
+          if (!hasApplications) {
+            console.log("检测到开票中状态且无开票记录，恢复开票信息表");
+            await this.proceedToInvoiceForm();
+          } else {
+            // 如果已有开票申请记录，说明处于子状态2（开票汇总）
+            console.log("检测到开票中状态且有开票记录，显示开票汇总");
+            this.activeTab = "invoice";
+          }
+        } catch (error) {
+          console.warn('检查开票状态失败:', error);
+        }
       }
     },
-    
+  
     /**
-     * 初始化拆分汇总配置
+     * 初始化拆分汇总配置（独立配置，不依赖明细设置）
      */
     initSplitConfig() {
-      // 从 Vuex store 加载配置
-      const storeConfig = this.$store.state.config.splitConfig || this.$store.state.config.detailSettings;
-      if (storeConfig && storeConfig.dimensions) {
-        this.splitConfig = { dimensions: storeConfig.dimensions };
+      // 只从 Vuex store 的 splitConfig 加载（不再使用 detailSettings）
+      const storeConfig = this.$store.state.config.splitConfig;
+      
+      if (storeConfig && storeConfig.dimensions && Array.isArray(storeConfig.dimensions) && storeConfig.dimensions.length > 0) {
+        // 如果有有效配置，直接使用
+        this.splitConfig = { 
+          dimension1: storeConfig.dimension1,
+          dimension2: storeConfig.dimension2,
+          dimensions: [...storeConfig.dimensions] 
+        };
+      } else if (storeConfig && (storeConfig.dimension1 || storeConfig.dimension2)) {
+        // 兼容旧格式：从 dimension1 和 dimension2 构建 dimensions 数组
+        const dimensions = [];
+        if (storeConfig.dimension1) dimensions.push(storeConfig.dimension1);
+        if (storeConfig.dimension2) dimensions.push(storeConfig.dimension2);
+        this.splitConfig = { 
+          dimension1: storeConfig.dimension1,
+          dimension2: storeConfig.dimension2,
+          dimensions 
+        };
+      } else {
+        // 如果没有配置，设置默认值（业务线）
+        const { SPLIT_DIMENSION } = require("@/utils/constants");
+        this.splitConfig = { 
+          dimension1: SPLIT_DIMENSION.BUSINESS_LINE,
+          dimension2: null,
+          dimensions: [SPLIT_DIMENSION.BUSINESS_LINE] 
+        };
       }
+      
+      console.log("初始化拆分汇总配置:", this.splitConfig);
     },
     
     /**
      * 初始化激活的Tab
      */
     initActiveTab() {
+      if (!this.currentBill) {
+        return;
+      }
+      
+      // 如果正在显示开票表单，不切换tab
+      if (this.showInvoiceForm) {
+        this.activeTab = "summary"; // 保持在账单汇总，但不显示（因为显示的是开票表单）
+        return;
+      }
+      
       // 优先使用URL query参数
       if (this.$route.query.tab) {
         this.activeTab = this.$route.query.tab;
@@ -429,6 +520,11 @@ export default {
       this.submitting = true;
       
       try {
+        // 如果当前在开票信息表，需要先退出
+        if (this.showInvoiceForm) {
+          this.exitInvoiceForm();
+        }
+        
         await this.cancelConfirm(this.billNo);
         showSuccess("账单确认已撤销");
         this.cancelDialogVisible = false;
@@ -457,18 +553,46 @@ export default {
      * 一键开票（在当前页面显示开票表单）
      */
     async handleApplyInvoice() {
-      // 检查是否有发票的拆分汇总字段
-      const hasInvoiceSplitConfig = this.splitConfig &&
-        this.splitConfig.dimensions &&
-        this.splitConfig.dimensions.length > 0;
-
-      if (!hasInvoiceSplitConfig) {
-        // 如果没有发票拆分汇总配置，显示拆分汇总设置对话框
-        this.splitConfigVisible = true;
-        return;
+      // 确保 splitConfig 有 dimensions 数组
+      if (!this.splitConfig) {
+        this.splitConfig = { dimensions: [] };
+      }
+      if (!this.splitConfig.dimensions || !Array.isArray(this.splitConfig.dimensions)) {
+        this.splitConfig.dimensions = [];
+      }
+      
+      // 检查是否有拆分汇总配置
+      if (this.splitConfig.dimensions.length === 0) {
+        // 如果没有配置，默认设置字段一为业务线
+        const { SPLIT_DIMENSION } = require("@/utils/constants");
+        this.splitConfig = {
+          dimensions: [SPLIT_DIMENSION.BUSINESS_LINE]
+        };
+        
+        // 保存默认配置到 Vuex
+        await this.$store.dispatch("config/saveSplitConfig", {
+          dimension1: SPLIT_DIMENSION.BUSINESS_LINE,
+          dimension2: null,
+          dimensions: [SPLIT_DIMENSION.BUSINESS_LINE]
+        });
       }
 
-      // 有发票拆分配置时，进入开票表单
+      console.log("handleApplyInvoice - splitConfig:", this.splitConfig);
+
+      // 如果当前状态是待开票，需要先将状态改为开票中
+      if (this.currentBill.billStatus === BILL_STATUS.PENDING_INVOICE) {
+        try {
+          const mockApi = require("@/mock/index").default;
+          await mockApi.startInvoicing(this.billNo);
+          
+          // 重新加载账单详情以更新状态
+          await this.loadBillDetail();
+        } catch (error) {
+          console.error("开始开票失败:", error);
+        }
+      }
+
+      // 进入开票表单
       await this.proceedToInvoiceForm();
     },
 
@@ -502,21 +626,186 @@ export default {
     },
     
     /**
+     * 从开票信息页撤销确认
+     */
+    handleCancelConfirmFromInvoice() {
+      // 退出开票表单
+      this.exitInvoiceForm();
+      // 显示撤销确认对话框
+      this.handleCancelConfirm();
+    },
+    
+    /**
      * 加载开票数据
      */
     async loadInvoiceData() {
-      const mockApi = require("@/mock/index").default;
+      try {
+        const mockApi = require("@/mock/index").default;
 
-      // 加载发票抬头
-      const titleRes = await mockApi.getInvoiceTitles();
-      this.invoiceTitles = titleRes.data.list || [];
+        // 加载发票抬头
+        const titleRes = await mockApi.getInvoiceTitles();
+        if (!titleRes || !titleRes.data) {
+          throw new Error("获取发票抬头失败");
+        }
+        this.invoiceTitles = titleRes.data.list || [];
+        console.log("loadInvoiceData - invoiceTitles:", this.invoiceTitles);
 
-      // 根据拆分汇总字段生成开票行
-      const rowRes = await mockApi.generateInvoiceRows(this.billNo, this.splitConfig);
-      this.invoiceRows = rowRes.data || [];
+        // 先获取开票汇总数据（确保数据一致性）
+        const summaryRes = await mockApi.getInvoiceSummary(this.billNo);
+        if (!summaryRes || !summaryRes.data) {
+          throw new Error("获取开票汇总失败");
+        }
+        const invoiceSummary = summaryRes.data;
 
-      // 更新统计信息
-      this.updateInvoiceStats();
+        // 确保 splitConfig 格式正确
+        let splitConfigForApi = this.splitConfig;
+        if (!splitConfigForApi) {
+          splitConfigForApi = { dimensions: [] };
+        }
+        
+        // 确保 dimensions 数组存在
+        if (!splitConfigForApi.dimensions || !Array.isArray(splitConfigForApi.dimensions)) {
+          // 尝试从 dimension1 和 dimension2 构建
+          if (splitConfigForApi.dimension1 || splitConfigForApi.dimension2) {
+            const dimensions = [];
+            if (splitConfigForApi.dimension1) dimensions.push(splitConfigForApi.dimension1);
+            if (splitConfigForApi.dimension2) dimensions.push(splitConfigForApi.dimension2);
+            splitConfigForApi = { ...splitConfigForApi, dimensions };
+          } else {
+            // 如果没有配置，使用默认配置
+            const { SPLIT_DIMENSION } = require("@/utils/constants");
+            splitConfigForApi = {
+              dimensions: [SPLIT_DIMENSION.BUSINESS_LINE]
+            };
+          }
+        }
+
+        // 根据拆分汇总字段和发票明细生成开票行
+        const rowRes = await mockApi.generateInvoiceRows(this.billNo, splitConfigForApi);
+        if (!rowRes || !rowRes.data) {
+          throw new Error("生成开票行失败");
+        }
+        let invoiceRows = rowRes.data || [];
+
+        // 确保 invoiceRows 是数组
+        if (!Array.isArray(invoiceRows)) {
+          console.warn("开票行数据格式不正确，使用空数组");
+          invoiceRows = [];
+        }
+
+        console.log("loadInvoiceData - 原始 invoiceRows:", invoiceRows.slice(0, 2));
+
+        // 数据格式转换：确保所有字段格式统一
+        invoiceRows = invoiceRows.map((row, index) => {
+          // 处理抬头信息：兼容 invoiceTitle 对象格式
+          let titleId = row.titleId || "";
+          let titleName = row.titleName || "";
+          let taxNumber = row.taxNumber || "";
+          
+          if (row.invoiceTitle && typeof row.invoiceTitle === 'object') {
+            titleId = row.invoiceTitle.titleId || titleId;
+            titleName = row.invoiceTitle.titleName || titleName;
+            taxNumber = row.invoiceTitle.taxNumber || taxNumber;
+          }
+
+          // 处理接收人信息：兼容 recipient 对象格式
+          let receiverId = row.receiverId || "";
+          let receiverName = row.receiverName || "";
+          let receiverPhone = row.receiverPhone || "";
+          let receiverEmail = row.receiverEmail || "";
+          let receiverAddress = row.receiverAddress || "";
+          
+          if (row.recipient && typeof row.recipient === 'object') {
+            receiverId = row.recipient.id || receiverId;
+            receiverName = row.recipient.name || receiverName;
+            receiverPhone = row.recipient.phone || receiverPhone;
+            receiverEmail = row.recipient.email || receiverEmail;
+            receiverAddress = row.recipient.address || receiverAddress;
+          }
+
+          // 确保必需字段存在
+          const normalizedRow = {
+            id: row.id || `invoice_row_${index}`,
+            invoiceType: row.invoiceType || row.invoiceTypeName || "",
+            invoiceTypeName: row.invoiceTypeName || row.invoiceType || "",
+            summary: row.summary || row.invoiceSummary || "",
+            invoiceSummary: row.invoiceSummary || row.summary || "",
+            amount: row.amount || 0,
+            orderCount: row.orderCount || 0,
+            quantity: row.quantity || 1,
+            unit: row.unit || "元",
+            // 抬头信息（扁平化）
+            titleId: titleId,
+            titleName: titleName,
+            taxNumber: taxNumber,
+            // 接收人信息（扁平化）
+            receiverId: receiverId,
+            receiverName: receiverName,
+            receiverPhone: receiverPhone,
+            receiverEmail: receiverEmail,
+            receiverAddress: receiverAddress,
+            // 拆分维度信息（确保正确设置）
+            splitDimension1: row.splitDimension1 || row.businessLine || "",
+            splitDimension2: row.splitDimension2 || row.legalEntity || "",
+            businessLine: row.businessLine || row.splitDimension1 || "",
+            legalEntity: row.legalEntity || row.splitDimension2 || "",
+            paymentAccount: row.paymentAccount || row.splitDimension1 || "",
+            department: row.department || row.splitDimension2 || "",
+            // 验证状态
+            isValid: row.isValid !== undefined ? row.isValid : false
+          };
+
+          return normalizedRow;
+        });
+
+        // 如果有发票明细，确保开票行的金额与明细一致
+        if (invoiceSummary && invoiceSummary.invoiceDetails && invoiceSummary.invoiceDetails.length > 0) {
+          // 按发票种类和摘要匹配，更新金额为还可提交金额
+          invoiceRows = invoiceRows.map(row => {
+            const rowType = row.invoiceType || row.invoiceTypeName || "";
+            const rowSummary = row.invoiceSummary || row.summary || "";
+            
+            // 找到匹配的明细
+            const matchingDetail = invoiceSummary.invoiceDetails.find(detail => {
+              // 类型匹配（支持部分匹配）
+              const typeMatch = rowType === detail.type || 
+                               String(rowType).includes(detail.type) || 
+                               detail.type.includes(String(rowType)) ||
+                               row.invoiceTypeName === detail.type;
+              
+              // 摘要匹配（支持部分匹配）
+              const summaryMatch = rowSummary === detail.summary || 
+                                  rowSummary.includes(detail.summary) || 
+                                  detail.summary.includes(rowSummary);
+              
+              return typeMatch && summaryMatch;
+            });
+            
+            if (matchingDetail && matchingDetail.remainingAmount > 0) {
+              // 如果找到匹配的明细，使用明细的还可提交金额和订单数
+              return {
+                ...row,
+                amount: matchingDetail.remainingAmount,
+                orderCount: matchingDetail.orderCount || row.orderCount
+              };
+            }
+            return row;
+          });
+        }
+
+        this.invoiceRows = invoiceRows;
+        console.log("loadInvoiceData - 最终 invoiceRows:", this.invoiceRows.slice(0, 2));
+
+        // 更新统计信息
+        this.updateInvoiceStats();
+        console.log("loadInvoiceData - 统计信息:", {
+          rowCount: this.invoiceRowCount,
+          totalAmount: this.invoiceTotalAmount
+        });
+      } catch (error) {
+        console.error("加载开票数据错误:", error);
+        throw error;
+      }
     },
     
     /**
@@ -533,23 +822,30 @@ export default {
      * 开票表单更新
      */
     handleInvoiceFormUpdate(data) {
-      if (data.invoiceRows) {
+      // 处理更新事件，支持多种数据格式
+      if (data && data.invoiceRows) {
+        // 新格式：{ invoiceRows: [...] }
         this.invoiceRows = data.invoiceRows;
-        this.updateInvoiceStats();
+      } else if (Array.isArray(data)) {
+        // 旧格式：直接是数组
+        this.invoiceRows = data;
       }
+      
+      // 更新统计信息
+      this.updateInvoiceStats();
     },
     
     /**
      * 提交开票申请
      */
-    async handleSubmitInvoice() {
+    async handleSubmitInvoice(invoiceRows) {
       this.submitting = true;
       
       try {
         const mockApi = require("@/mock/index").default;
         await mockApi.applyInvoice({
           billNo: this.billNo,
-          invoiceRows: this.invoiceRows
+          invoiceRows: invoiceRows || this.invoiceRows
         });
         
         showSuccess("开票申请提交成功");
@@ -560,8 +856,12 @@ export default {
         // 延迟刷新，确保 mock 数据已更新
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // 刷新账单数据
-        await this.loadBillDetail();
+        // 刷新账单数据和开票汇总数据
+        await Promise.all([
+          this.loadBillDetail(),
+          this.$store.dispatch("invoice/fetchInvoiceSummary", this.billNo),
+          this.$store.dispatch("invoice/fetchInvoiceApplications", this.billNo)
+        ]);
 
         // 强制更新组件
         this.$forceUpdate();
@@ -583,6 +883,13 @@ export default {
     handleDetailSettings() {
       this.splitConfigVisible = true;
     },
+
+    /**
+     * 打开拆分汇总配置对话框（快速入口）
+     */
+    openSplitConfig() {
+      this.splitConfigVisible = true;
+    },
     
     /**
      * 保存拆分汇总配置（统一处理）
@@ -594,8 +901,7 @@ export default {
         if (config.dimension1) dimensions.push(config.dimension1);
         if (config.dimension2) dimensions.push(config.dimension2);
 
-        // 保存配置到 Vuex（同时保存到 detailSettings 和 splitConfig）
-        await this.$store.dispatch("config/saveDetailSettings", { dimensions });
+        // 保存配置到 Vuex（独立保存到 splitConfig，不影响 detailSettings）
         await this.$store.dispatch("config/saveSplitConfig", config);
 
         // 更新本地配置
@@ -604,8 +910,8 @@ export default {
 
         showSuccess("拆分汇总配置已保存");
 
-        // 如果是从确认账单进入的，保存配置后自动进入开票表单
-        if (this.currentBill && this.currentBill.billStatus >= 3) {
+        // 如果是从确认账单进入的（开票中状态），保存配置后自动进入开票表单
+        if (this.currentBill && this.currentBill.billStatus === BILL_STATUS.INVOICING) {
           await this.proceedToInvoiceForm();
         } else if (!this.showInvoiceForm) {
           // 如果不在开票表单模式，刷新账单数据以应用新设置
@@ -659,6 +965,13 @@ export default {
      */
     getBillStatusType(status) {
       return BILL_STATUS_COLORS[status] || "";
+    },
+    
+    /**
+     * 格式化日期
+     */
+    formatDate(date, format = 'YYYY-MM-DD') {
+      return formatDate(date, format);
     }
   }
 };
@@ -709,6 +1022,12 @@ export default {
     // 步骤卡片
     .steps-card {
       margin-bottom: @spacing-md;
+
+      .step-description {
+        color: @warning-color;
+        font-size: @font-size-sm;
+        margin-top: @spacing-xs;
+      }
     }
 
     // 操作卡片
@@ -764,32 +1083,6 @@ export default {
         .action-section {
           margin-bottom: @spacing-lg;
         }
-        
-        // 底部操作区
-        .invoice-footer-actions {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: @spacing-xl;
-          padding-top: @spacing-lg;
-          border-top: 2px solid @border-base;
-          
-          .summary-info {
-            font-size: @font-size-base;
-            color: @text-secondary;
-            
-            .summary-value {
-              color: @text-primary;
-              font-weight: 600;
-              margin: 0 @spacing-xs;
-              
-              &.highlight {
-                color: @primary-color;
-                font-size: @font-size-xl;
-              }
-            }
-          }
-        }
       }
     }
 
@@ -834,49 +1127,64 @@ export default {
 
   // 对话框样式
   .confirm-dialog-content {
-    .confirm-message {
-      font-size: @font-size-lg;
-      color: @text-primary;
-      margin-bottom: @spacing-lg;
-      text-align: center;
+      .confirm-message {
+        font-size: @font-size-lg;
+        color: @text-primary;
+        margin-bottom: @spacing-lg;
+        text-align: center;
 
-      strong {
-        color: @primary-color;
+        strong {
+          color: @primary-color;
+        }
+      }
+
+      .confirm-amount {
+        background: @bg-light;
+        padding: @spacing-md;
+        border-radius: @border-radius-base;
+        margin-bottom: @spacing-lg;
+
+        .amount-item {
+          display: flex;
+          justify-content: space-between;
+          padding: @spacing-sm 0;
+
+          .label {
+            color: @text-secondary;
+          }
+
+          .value {
+            font-weight: 600;
+            color: @text-primary;
+          }
+        }
+      }
+
+      .confirm-hint {
+        font-size: @font-size-sm;
+        color: @text-placeholder;
+        text-align: center;
+        margin: 0;
+
+        &.warn {
+          color: @warning-color;
+        }
       }
     }
 
-    .confirm-amount {
-      background: @bg-light;
-      padding: @spacing-md;
-      border-radius: @border-radius-base;
-      margin-bottom: @spacing-lg;
-
-      .amount-item {
-        display: flex;
-        justify-content: space-between;
-        padding: @spacing-sm 0;
-
-        .label {
-          color: @text-secondary;
-        }
-
-        .value {
-          font-weight: 600;
-          color: @text-primary;
-        }
-      }
-    }
-
-    .confirm-hint {
-      font-size: @font-size-sm;
-      color: @text-placeholder;
-      text-align: center;
-      margin: 0;
-
-      &.warn {
-        color: @warning-color;
-      }
+    // 拆分配置提示条
+    .split-config-banner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      background: #fff8e1;
+      border: 1px solid #ffe0a3;
+      color: #8a6d1b;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin: 8px 0 12px 0;
     }
   }
-}
+  
 </style>

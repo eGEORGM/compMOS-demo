@@ -1,26 +1,29 @@
 <template>
   <div class="bill-list-page">
-    <!-- 公司信息区域 -->
-    <div class="company-info-card">
-      <div class="company-name">{{ companyInfo.name }}</div>
-      <div class="company-detail">{{ companyInfo.fullName }} | 企业ID: {{ companyInfo.id }}</div>
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <h1 class="page-title">账单列表</h1>
+      <div class="company-info">
+        <span class="company-name">{{ companyInfo.name }}</span>
+        <span class="company-divider">|</span>
+        <span class="company-id">企业ID: {{ companyInfo.id }}</span>
+      </div>
     </div>
 
     <!-- 筛选区域 -->
     <el-card class="filter-card" shadow="never">
-      <el-form :inline="true" :model="filterForm" size="medium">
+      <el-form :inline="true" :model="filterForm" size="small" label-width="80px">
         <!-- 日期范围筛选 -->
         <el-form-item label="结算周期">
           <el-date-picker
             v-model="filterForm.dateRange"
-            type="daterange"
+            type="monthrange"
             range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="yyyy-MM-dd"
-            value-format="yyyy-MM-dd"
-            :picker-options="pickerOptions"
-            @change="handleDateRangeChange"
+            start-placeholder="开始月份"
+            end-placeholder="结束月份"
+            format="yyyy-MM"
+            value-format="yyyy-MM"
+            @change="handleSearch"
           ></el-date-picker>
         </el-form-item>
 
@@ -32,7 +35,6 @@
             clearable
             @change="handleSearch"
           >
-            <el-option label="全部" :value="null"></el-option>
             <el-option
               v-for="(name, value) in billStatusNames"
               :key="value"
@@ -42,20 +44,14 @@
           </el-select>
         </el-form-item>
 
-        <!-- 订单号搜索 -->
-        <el-form-item label="订单号">
+        <!-- 账单号搜索 -->
+        <el-form-item label="账单号">
           <el-input
-            v-model="filterForm.orderNo"
-            placeholder="输入订单号跳转详情"
+            v-model="filterForm.billNo"
+            placeholder="请输入账单号"
             clearable
-            @keyup.enter.native="handleOrderNoSearch"
-          >
-            <el-button
-              slot="append"
-              icon="el-icon-search"
-              @click="handleOrderNoSearch"
-            ></el-button>
-          </el-input>
+            @keyup.enter.native="handleSearch"
+          ></el-input>
         </el-form-item>
 
         <!-- 操作按钮 -->
@@ -72,26 +68,40 @@
 
     <!-- 表格区域 -->
     <el-card class="table-card" shadow="never">
+      <!-- 表格头部信息 -->
+      <div class="table-header">
+        <div class="result-info">
+          共 <span class="highlight">{{ pagination.total }}</span> 条账单
+        </div>
+      </div>
+      
       <el-table
         v-loading="loading"
         :data="billList"
-        stripe
         border
         style="width: 100%"
         @row-click="handleRowClick"
+        class="bill-table"
+        v-if="!loading && billList.length > 0"
       >
+        <el-table-column
+          prop="billNo"
+          label="账单号"
+          width="180"
+          fixed="left"
+        ></el-table-column>
+        
         <el-table-column
           prop="settlementCycle"
           label="结算周期"
-          width="150"
           :formatter="formatCycle"
         ></el-table-column>
 
-        <el-table-column prop="billStatus" label="状态" width="120">
+        <el-table-column prop="billStatus" label="账单状态" width="120" align="center">
           <template slot-scope="{ row }">
             <el-tag
               :type="getBillStatusType(row.billStatus)"
-              size="medium"
+              size="small"
             >
               {{ getBillStatusName(row.billStatus) }}
             </el-tag>
@@ -100,34 +110,51 @@
 
         <el-table-column
           prop="totalAmount"
-          label="账单总计"
-          width="150"
+          label="账单总额"
+          width="140"
           align="right"
-          :formatter="formatAmount"
-        ></el-table-column>
+        >
+          <template slot-scope="{ row }">
+            <span class="amount-text">{{ formatAmountValue(row.totalAmount) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column
+          prop="invoicedAmount"
+          label="已开票金额"
+          width="140"
+          align="right"
+        >
+          <template slot-scope="{ row }">
+            <span class="amount-text">{{ formatAmountValue(row.invoicedAmount || 0) }}</span>
+          </template>
+        </el-table-column>
 
         <el-table-column
           prop="pendingInvoiceAmount"
           label="待开票金额"
-          width="150"
+          width="140"
           align="right"
-          :formatter="formatAmount"
-        ></el-table-column>
+        >
+          <template slot-scope="{ row }">
+            <span class="amount-text">{{ formatAmountValue(row.pendingInvoiceAmount || row.totalAmount) }}</span>
+          </template>
+        </el-table-column>
 
-        <el-table-column prop="createTime" label="创建时间" width="180">
+        <el-table-column prop="createTime" label="创建时间" width="150">
           <template slot-scope="{ row }">
             {{ formatDate(row.createTime) }}
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="120" fixed="right" align="center">
+        <el-table-column label="操作" width="100" fixed="right" align="center">
           <template slot-scope="{ row }">
             <el-button
               type="text"
               size="small"
               @click.stop="handleViewDetail(row)"
             >
-              查看详情
+              查看
             </el-button>
           </template>
         </el-table-column>
@@ -172,58 +199,13 @@ export default {
       filterForm: {
         dateRange: null,
         status: null,
-        orderNo: ""
+        billNo: ""
       },
       // 公司信息
       companyInfo: {
         id: "C001",
         name: "示例科技有限公司",
         fullName: "北京示例科技有限公司"
-      },
-      // 日期选择器配置
-      pickerOptions: {
-        disabledDate: (time) => {
-          // 禁用未来日期
-          if (time.getTime() > Date.now()) {
-            return true;
-          }
-          // 如果已选择开始日期，限制结束日期不超过180天
-          if (this.filterForm.dateRange && this.filterForm.dateRange[0]) {
-            const startTime = new Date(this.filterForm.dateRange[0]).getTime();
-            const diffDays = Math.abs((time.getTime() - startTime) / (1000 * 60 * 60 * 24));
-            return diffDays > 180;
-          }
-          return false;
-        },
-        shortcuts: [
-          {
-            text: "最近一个月",
-            onClick(picker) {
-              const end = new Date();
-              const start = new Date();
-              start.setMonth(start.getMonth() - 1);
-              picker.$emit("pick", [start, end]);
-            }
-          },
-          {
-            text: "最近三个月",
-            onClick(picker) {
-              const end = new Date();
-              const start = new Date();
-              start.setMonth(start.getMonth() - 3);
-              picker.$emit("pick", [start, end]);
-            }
-          },
-          {
-            text: "最近六个月",
-            onClick(picker) {
-              const end = new Date();
-              const start = new Date();
-              start.setMonth(start.getMonth() - 6);
-              picker.$emit("pick", [start, end]);
-            }
-          }
-        ]
       }
     };
   },
@@ -241,26 +223,25 @@ export default {
     ...mapActions("bill", ["fetchBillList"]),
 
     /**
-     * 初始化默认日期范围（最近一个月）
+     * 初始化默认日期范围（最近三个月）
      */
     initDefaultDateRange() {
       const end = new Date();
       const start = new Date();
-      start.setMonth(start.getMonth() - 1);
+      start.setMonth(start.getMonth() - 3);
       this.filterForm.dateRange = [
-        this.formatDateString(start),
-        this.formatDateString(end)
+        this.formatMonthString(start),
+        this.formatMonthString(end)
       ];
     },
 
     /**
-     * 格式化日期为字符串
+     * 格式化月份为字符串
      */
-    formatDateString(date) {
+    formatMonthString(date) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      return `${year}-${month}`;
     },
 
     /**
@@ -272,10 +253,10 @@ export default {
         pageSize: this.pagination.pageSize
       };
 
-      // 日期范围
+      // 日期范围（月份）
       if (this.filterForm.dateRange && this.filterForm.dateRange.length === 2) {
-        params.startDate = this.filterForm.dateRange[0];
-        params.endDate = this.filterForm.dateRange[1];
+        params.startCycle = this.filterForm.dateRange[0];
+        params.endCycle = this.filterForm.dateRange[1];
       }
 
       // 状态
@@ -283,24 +264,12 @@ export default {
         params.status = this.filterForm.status;
       }
 
-      await this.fetchBillList(params);
-    },
-
-    /**
-     * 日期范围变化处理
-     */
-    handleDateRangeChange(value) {
-      if (value && value.length === 2) {
-        const start = new Date(value[0]);
-        const end = new Date(value[1]);
-        const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
-
-        if (diffDays > 180) {
-          showWarning("日期范围不能超过180天");
-          this.filterForm.dateRange = null;
-          return;
-        }
+      // 账单号
+      if (this.filterForm.billNo && this.filterForm.billNo.trim()) {
+        params.billNo = this.filterForm.billNo.trim();
       }
+
+      await this.fetchBillList(params);
     },
 
     /**
@@ -316,27 +285,9 @@ export default {
      */
     handleReset() {
       this.filterForm.status = null;
-      this.filterForm.orderNo = "";
+      this.filterForm.billNo = "";
       this.initDefaultDateRange();
       this.handleSearch();
-    },
-
-    /**
-     * 订单号搜索
-     */
-    handleOrderNoSearch() {
-      const orderNo = this.filterForm.orderNo.trim();
-      if (!orderNo) {
-        showWarning("请输入订单号");
-        return;
-      }
-
-      // 查找包含该订单的账单
-      // 这里简化处理，实际应调用API搜索
-      showWarning("订单号搜索功能将在账单详情页实现");
-
-      // 如果找到账单，跳转到详情页并传递订单号
-      // this.$router.push({ name: 'BillDetail', params: { billNo: 'xxx' }, query: { orderNo } });
     },
 
     /**
@@ -380,10 +331,9 @@ export default {
     },
 
     /**
-     * 格式化金额
+     * 格式化金额值
      */
-    formatAmount(row, column) {
-      const value = row[column.property];
+    formatAmountValue(value) {
       return formatAmount(value);
     },
 
@@ -391,7 +341,7 @@ export default {
      * 格式化日期
      */
     formatDate(date) {
-      return formatDate(date, "YYYY-MM-DD HH:mm");
+      return formatDate(date, "YYYY-MM-DD");
     },
 
     /**
@@ -416,24 +366,44 @@ export default {
 
 .bill-list-page {
   padding: @spacing-lg;
+  background: @bg-light;
+  min-height: 100vh;
 
-  .company-info-card {
+  .page-header {
     background: @bg-white;
     padding: @spacing-lg @spacing-xl;
     border-radius: @border-radius-base;
     margin-bottom: @spacing-md;
-    box-shadow: @shadow-base;
+    box-shadow: @shadow-light;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 
-    .company-name {
-      font-size: @font-size-xl;
+    .page-title {
+      font-size: 24px;
       font-weight: 600;
       color: @text-primary;
-      margin-bottom: @spacing-xs;
+      margin: 0;
     }
 
-    .company-detail {
+    .company-info {
+      display: flex;
+      align-items: center;
+      gap: @spacing-sm;
       font-size: @font-size-base;
-      color: @text-secondary;
+
+      .company-name {
+        color: @text-primary;
+        font-weight: 500;
+      }
+
+      .company-divider {
+        color: @text-placeholder;
+      }
+
+      .company-id {
+        color: @text-secondary;
+      }
     }
   }
 
@@ -441,23 +411,24 @@ export default {
     margin-bottom: @spacing-md;
 
     /deep/ .el-card__body {
-      padding: @spacing-lg;
+      padding: @spacing-md @spacing-lg;
     }
 
     /deep/ .el-form-item {
       margin-bottom: 0;
+      margin-right: @spacing-md;
     }
 
     /deep/ .el-date-editor {
-      width: 350px;
+      width: 240px;
     }
 
     /deep/ .el-select {
-      width: 200px;
+      width: 150px;
     }
 
-    /deep/ .el-input-group {
-      width: 300px;
+    /deep/ .el-input {
+      width: 200px;
     }
   }
 
@@ -466,13 +437,33 @@ export default {
       padding: @spacing-lg;
     }
 
-    /deep/ .el-table {
-      .el-table__row {
+    .table-header {
+      margin-bottom: @spacing-md;
+      
+      .result-info {
+        font-size: @font-size-base;
+        color: @text-secondary;
+        
+        .highlight {
+          color: @primary-color;
+          font-weight: 600;
+          font-size: @font-size-lg;
+        }
+      }
+    }
+
+    .bill-table {
+      /deep/ .el-table__row {
         cursor: pointer;
 
         &:hover {
-          background-color: @bg-light;
+          background-color: #f5f7fa;
         }
+      }
+      
+      .amount-text {
+        font-weight: 500;
+        color: @text-primary;
       }
     }
 

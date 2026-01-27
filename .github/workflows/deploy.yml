@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master  # 当推送到 master 分支时触发
+    paths:
+      - 'compMOS-demo/**'  # 只有 compMOS-demo 目录变化时触发
 
   # 允许手动触发工作流
   workflow_dispatch:
@@ -27,11 +29,14 @@ jobs:
         with:
           node-version: '16'
           cache: 'npm'
+          cache-dependency-path: 'compMOS-demo/package.json'
       
       - name: 安装依赖
+        working-directory: compMOS-demo
         run: npm install
       
       - name: 构建项目
+        working-directory: compMOS-demo
         run: npm run build
         env:
           NODE_ENV: production
@@ -40,6 +45,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          publish_dir: ./compMOS-demo/dist
           publish_branch: gh-pages
           cname: false

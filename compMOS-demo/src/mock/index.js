@@ -10,6 +10,15 @@ import invoicesNew from "./invoicesNew";
 // 存储订单数据的Map
 const ordersByBillNo = new Map();
 
+// 存储开票行数据的Map（从开票信息表生成，用于数据流转）
+const invoiceRowsByBillNo = new Map();
+
+// 存储开票申请记录的Map（用于保持数据一致性）
+const invoiceApplicationsByBillNo = new Map();
+
+// 存储开票汇总数据的Map（用于保持数据一致性）
+const invoiceSummaryByBillNo = new Map();
+
 // 初始化订单数据
 billsNew.billPackages.forEach(bill => {
   ordersByBillNo.set(
@@ -17,6 +26,42 @@ billsNew.billPackages.forEach(bill => {
     ordersNew.generateBillOrders(bill.billNo)
   );
 });
+
+/**
+ * 根据开票行数据生成开票汇总
+ */
+function generateInvoiceSummaryFromRows(billNo, invoiceRows, totalAmount) {
+  // 按发票种类汇总
+  const invoiceTypeMap = {};
+  
+  invoiceRows.forEach(row => {
+    const typeName = row.invoiceType || row.invoiceTypeName || '其他';
+    if (!invoiceTypeMap[typeName]) {
+      invoiceTypeMap[typeName] = {
+        type: typeName,
+        summary: row.summary || row.invoiceSummary || typeName,
+        shouldAmount: 0,
+        invoicedAmount: 0,
+        remainingAmount: 0,
+        orderCount: 0
+      };
+    }
+    invoiceTypeMap[typeName].shouldAmount += row.amount || 0;
+    invoiceTypeMap[typeName].remainingAmount += row.amount || 0;
+    invoiceTypeMap[typeName].orderCount += row.orderCount || 0;
+  });
+  
+  const invoiceDetails = Object.values(invoiceTypeMap);
+  const shouldInvoiceAmount = invoiceDetails.reduce((sum, item) => sum + item.shouldAmount, 0);
+  
+  return {
+    billNo,
+    shouldInvoiceAmount: parseFloat(shouldInvoiceAmount.toFixed(2)),
+    invoicedAmount: 0,
+    remainingAmount: parseFloat(shouldInvoiceAmount.toFixed(2)),
+    invoiceDetails
+  };
+}
 
 /**
  * 模拟API响应包装
@@ -112,28 +157,33 @@ const mockApi = {
     // 获取账单汇总
     const summary = billsNew.generateBillSummary(billNo);
 
-    return mockResponse({
+    // 返回深拷贝的数据，避免直接引用导致 Vuex 警告
+    return mockResponse(JSON.parse(JSON.stringify({
       ...bill,
       summary
-    });
+    })));
   },
 
   /**
    * 确认账单
    */
   confirmBill(billNo) {
-    const bill = billsNew.billPackages.find(b => b.billNo === billNo);
-    if (!bill) {
+    const billIndex = billsNew.billPackages.findIndex(b => b.billNo === billNo);
+    if (billIndex === -1) {
       return mockError(10001, "账单不存在");
     }
-
+    
+    const bill = billsNew.billPackages[billIndex];
     if (bill.billStatus !== 0) {
       return mockError(10002, "账单状态不允许此操作");
     }
 
-    // 更新账单状态
-    bill.billStatus = 2; // 待开票
-    bill.confirmedTime = new Date().toISOString();
+    // 创建新对象并更新账单状态
+    billsNew.billPackages[billIndex] = {
+      ...bill,
+      billStatus: 2, // 待开票
+      confirmedTime: new Date().toISOString()
+    };
 
     // 更新所有订单为已核对
     const orders = ordersByBillNo.get(billNo);
@@ -164,18 +214,24 @@ const mockApi = {
    * 撤销账单确认
    */
   cancelBillConfirm(billNo) {
-    const bill = billsNew.billPackages.find(b => b.billNo === billNo);
-    if (!bill) {
+    const billIndex = billsNew.billPackages.findIndex(b => b.billNo === billNo);
+    if (billIndex === -1) {
       return mockError(10001, "账单不存在");
     }
-
-    if (bill.billStatus !== 2) {
+    
+    const bill = billsNew.billPackages[billIndex];
+    // 允许从待开票(2)或开票中(3)状态撤销
+    if (bill.billStatus !== 2 && bill.billStatus !== 3) {
       return mockError(10002, "账单状态不允许撤销");
     }
 
-    // 更新账单状态
-    bill.billStatus = 0; // 待确认
-    bill.confirmedTime = null;
+    // 创建新对象并更新账单状态
+    billsNew.billPackages[billIndex] = {
+      ...bill,
+      billStatus: 0, // 待确认
+      confirmedTime: null,
+      invoicingStartTime: null
+    };
 
     // 更新所有订单为未核对
     const orders = ordersByBillNo.get(billNo);
@@ -196,6 +252,33 @@ const mockApi = {
     }
 
     return mockResponse({ billNo, status: bill.billStatus });
+  },
+
+  /**
+   * 开始开票（将状态从待开票改为开票中）
+   */
+  startInvoicing(billNo) {
+    const billIndex = billsNew.billPackages.findIndex(b => b.billNo === billNo);
+    if (billIndex === -1) {
+      return mockError(10001, "账单不存在");
+    }
+    
+    const bill = billsNew.billPackages[billIndex];
+    if (bill.billStatus !== 2) {
+      return mockError(10002, "账单状态不是待开票");
+    }
+
+    // 创建新对象并更新账单状态为开票中
+    billsNew.billPackages[billIndex] = {
+      ...bill,
+      billStatus: 3, // 开票中
+      invoicingStartTime: new Date().toISOString()
+    };
+
+    return mockResponse({
+      billNo: bill.billNo,
+      status: bill.billStatus
+    });
   },
 
   /**
@@ -311,7 +394,33 @@ const mockApi = {
       return mockError(10001, "账单不存在");
     }
 
-    const summary = invoicesNew.generateInvoiceSummary(billNo, bill.totalAmount, bill.billStatus);
+    // 优先使用已保存的汇总数据（从开票流程中生成的）
+    if (invoiceSummaryByBillNo.has(billNo)) {
+      const savedSummary = invoiceSummaryByBillNo.get(billNo);
+      console.log("getInvoiceSummary - 使用已保存的汇总数据:", savedSummary);
+      return mockResponse(savedSummary);
+    }
+
+    // 如果没有保存的数据，尝试从开票行数据生成
+    const savedInvoiceData = invoiceRowsByBillNo.get(billNo);
+    if (savedInvoiceData && savedInvoiceData.rows) {
+      console.log("getInvoiceSummary - 从开票行数据生成汇总");
+      const summary = generateInvoiceSummaryFromRows(billNo, savedInvoiceData.rows, bill.totalAmount);
+      invoiceSummaryByBillNo.set(billNo, summary);
+      return mockResponse(summary);
+    }
+
+    // 最后的兜底方案：生成新的汇总数据
+    console.log("getInvoiceSummary - 生成新的汇总数据");
+    const summary = invoicesNew.generateInvoiceSummary(
+      billNo,
+      bill.totalAmount,
+      bill.billStatus
+    );
+    
+    // 保存汇总数据
+    invoiceSummaryByBillNo.set(billNo, summary);
+    
     return mockResponse(summary);
   },
 
@@ -319,26 +428,182 @@ const mockApi = {
    * 提交开票申请
    */
   applyInvoice(data) {
-    const { billNo } = data;
+    const { billNo, invoiceRows } = data;
     const bill = billsNew.billPackages.find(b => b.billNo === billNo);
     if (!bill) {
       return mockError(10001, "账单不存在");
     }
 
-    if (bill.billStatus !== 2) {
-      return mockError(10007, "账单尚未确认，无法开票");
+    if (bill.billStatus !== 2 && bill.billStatus !== 3) {
+      return mockError(10007, "账单状态不正确，无法开票");
     }
 
-    // 更新账单状态
-    bill.billStatus = 3; // 待付款
-    bill.invoicedAmount = bill.totalAmount;
-    bill.pendingInvoiceAmount = 0;
-    bill.invoicedTime = new Date().toISOString();
+    // 计算总开票金额
+    const totalInvoiceAmount = invoiceRows.reduce((sum, row) => {
+      return sum + (row.amount || 0);
+    }, 0);
+
+    // 创建新对象并更新账单状态和金额
+    const billIndex = billsNew.billPackages.findIndex(b => b.billNo === billNo);
+    if (billIndex !== -1) {
+      billsNew.billPackages[billIndex] = {
+        ...bill,
+        billStatus: 3, // 开票中（不是待付款，因为开票是异步的）
+        invoicedAmount: (bill.invoicedAmount || 0) + totalInvoiceAmount,
+        pendingInvoiceAmount: Math.max(0, (bill.pendingInvoiceAmount || bill.totalAmount) - totalInvoiceAmount),
+        invoicedTime: new Date().toISOString()
+      };
+    }
+
+    // 生成申请记录（为每个开票行生成一条记录）
+    const now = new Date();
+    const applications = invoiceRows.map((row, index) => {
+      const applicationNo = `APP${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(index + 1).padStart(3, '0')}`;
+      
+      // 获取发票抬头信息（支持多种格式）
+      let titleName = "";
+      let taxNumber = "";
+      
+      // 优先使用扁平化的字段
+      if (row.titleName) {
+        titleName = row.titleName;
+        taxNumber = row.taxNumber || "";
+      } else if (row.invoiceTitle && typeof row.invoiceTitle === 'object') {
+        // 兼容嵌套对象格式
+        titleName = row.invoiceTitle.titleName || "";
+        taxNumber = row.invoiceTitle.taxNumber || "";
+      } else if (row.titleId) {
+        // 如果有 titleId，尝试从发票抬头列表中查找（这里简化处理）
+        // 实际应该从发票抬头列表中查找
+        titleName = "示例科技有限公司";
+        taxNumber = "91110108MA01234567";
+      }
+      
+      // 如果仍然没有抬头信息，使用默认值
+      if (!titleName) {
+        titleName = "示例科技有限公司";
+        taxNumber = "91110108MA01234567";
+      }
+      
+      // 获取收货人信息（支持多种格式）
+      let submitter = "system";
+      let receiverName = "";
+      let receiverEmail = "";
+      
+      // 优先使用扁平化的字段
+      if (row.receiverEmail) {
+        receiverEmail = row.receiverEmail;
+        receiverName = row.receiverName || "";
+        submitter = receiverEmail;
+      } else if (row.receiverName) {
+        receiverName = row.receiverName;
+        submitter = receiverName;
+      } else if (row.recipient && typeof row.recipient === 'object') {
+        // 兼容嵌套对象格式
+        receiverEmail = row.recipient.email || "";
+        receiverName = row.recipient.name || "";
+        submitter = receiverEmail || receiverName || "system";
+      } else if (row.receiverId) {
+        // 如果有 receiverId，尝试从收货人列表中查找（这里简化处理）
+        // 实际应该从收货人列表中查找
+        submitter = "system";
+      }
+      
+      // 构建发票内容描述（包含拆分信息）
+      let content = row.invoiceSummary || row.summary || "全部订单";
+      if (row.splitDimension1 || row.splitDimension2) {
+        const splitParts = [];
+        if (row.splitDimension1) splitParts.push(row.splitDimension1);
+        if (row.splitDimension2) splitParts.push(row.splitDimension2);
+        if (splitParts.length > 0) {
+          content = `${content} (${splitParts.join(' - ')})`;
+        }
+      }
+      
+      return {
+        applicationNo,
+        billNo,
+        invoiceType: row.invoiceType || row.invoiceTypeName || "增值税普通发票",
+        content: content,
+        amount: row.amount || 0,
+        titleName: titleName,
+        taxNumber: taxNumber,
+        submitter: submitter,
+        applyTime: now.toISOString().slice(0, 19).replace('T', ' '),
+        status: "processing", // 初始状态为处理中
+        isFlushed: false,
+        remark: ""
+      };
+    });
+
+    // 保存申请记录到存储（用于后续查询）
+    if (!invoiceApplicationsByBillNo.has(billNo)) {
+      invoiceApplicationsByBillNo.set(billNo, []);
+    }
+    const existingApplications = invoiceApplicationsByBillNo.get(billNo);
+    existingApplications.push(...applications);
+    invoiceApplicationsByBillNo.set(billNo, existingApplications);
+
+    // 更新开票汇总数据（基于已保存的开票行数据）
+    let currentSummary = invoiceSummaryByBillNo.get(billNo);
+    
+    if (!currentSummary) {
+      // 如果没有汇总数据，尝试从开票行数据生成
+      const savedInvoiceData = invoiceRowsByBillNo.get(billNo);
+      if (savedInvoiceData && savedInvoiceData.rows) {
+        currentSummary = generateInvoiceSummaryFromRows(billNo, savedInvoiceData.rows, bill.totalAmount);
+      } else {
+        // 最后的兜底方案
+        currentSummary = invoicesNew.generateInvoiceSummary(billNo, bill.totalAmount, bill.billStatus);
+      }
+    }
+    
+    // 计算已开票金额（累加）
+    const newInvoicedAmount = (currentSummary.invoicedAmount || 0) + totalInvoiceAmount;
+    const newRemainingAmount = Math.max(0, currentSummary.shouldInvoiceAmount - newInvoicedAmount);
+    
+    // 按发票种类汇总本次提交的开票行
+    const submittedByType = {};
+    invoiceRows.forEach(row => {
+      const typeName = row.invoiceType || row.invoiceTypeName || '其他';
+      if (!submittedByType[typeName]) {
+        submittedByType[typeName] = 0;
+      }
+      submittedByType[typeName] += row.amount || 0;
+    });
+    
+    console.log("applyInvoice - submittedByType:", submittedByType);
+    
+    // 更新汇总明细（基于发票种类精确匹配）
+    const updatedDetails = currentSummary.invoiceDetails.map(detail => {
+      const submittedAmount = submittedByType[detail.type] || 0;
+      
+      if (submittedAmount > 0) {
+        const newDetailInvoiced = (detail.invoicedAmount || 0) + submittedAmount;
+        return {
+          ...detail,
+          invoicedAmount: parseFloat(newDetailInvoiced.toFixed(2)),
+          remainingAmount: parseFloat(Math.max(0, detail.shouldAmount - newDetailInvoiced).toFixed(2))
+        };
+      }
+      return detail;
+    });
+    
+    // 更新汇总数据
+    const updatedSummary = {
+      ...currentSummary,
+      invoicedAmount: newInvoicedAmount,
+      remainingAmount: newRemainingAmount,
+      invoiceDetails: updatedDetails
+    };
+    
+    invoiceSummaryByBillNo.set(billNo, updatedSummary);
 
     return mockResponse({
-      applicationId: "APP" + Date.now(),
+      applicationId: applications[0].applicationNo,
       billNo,
-      status: 1 // 开票中
+      status: 1, // 开票中
+      applications: applications
     });
   },
 
@@ -346,7 +611,19 @@ const mockApi = {
    * 获取开票申请记录
    */
   getInvoiceApplications(billNo) {
-    const applications = invoicesNew.generateInvoiceApplications(billNo);
+    // 优先使用已保存的申请记录（从提交开票时保存的）
+    let applications = [];
+    if (invoiceApplicationsByBillNo.has(billNo)) {
+      applications = invoiceApplicationsByBillNo.get(billNo);
+    }
+    
+    // 如果没有保存的记录，使用默认生成的记录
+    if (applications.length === 0) {
+      applications = invoicesNew.generateInvoiceApplications(billNo);
+      // 保存默认记录
+      invoiceApplicationsByBillNo.set(billNo, applications);
+    }
+    
     return mockResponse({
       list: applications,
       total: applications.length
@@ -365,6 +642,63 @@ const mockApi = {
   },
 
   /**
+   * 生成开票行（根据拆分汇总配置）
+   * @param {String} billNo - 账单号
+   * @param {Object} splitConfig - 拆分汇总配置 { dimensions: [] }
+   */
+  generateInvoiceRows(billNo, splitConfig) {
+    try {
+      // 从 splitConfig 中提取 dimensions 数组
+      // 支持多种格式：{ dimensions: [] } 或 { dimension1: 'xxx', dimension2: 'xxx' }
+      let dimensions = [];
+      
+      if (splitConfig) {
+        if (splitConfig.dimensions && Array.isArray(splitConfig.dimensions)) {
+          dimensions = splitConfig.dimensions;
+        } else if (splitConfig.dimension1 || splitConfig.dimension2) {
+          // 兼容旧格式
+          if (splitConfig.dimension1) dimensions.push(splitConfig.dimension1);
+          if (splitConfig.dimension2) dimensions.push(splitConfig.dimension2);
+        }
+      }
+      
+      console.log("generateInvoiceRows - splitConfig:", splitConfig);
+      console.log("generateInvoiceRows - dimensions:", dimensions);
+      
+      // 获取账单的订单数据
+      const orders = ordersByBillNo.get(billNo) || [];
+      console.log("generateInvoiceRows - orders count:", orders.length);
+      
+      // 调用 generateInvoiceTable 生成开票信息表，传入订单数据
+      const invoiceRows = invoicesNew.generateInvoiceTable(billNo, dimensions, orders);
+      
+      console.log("generateInvoiceRows - invoiceRows:", invoiceRows);
+      
+      // 保存开票行数据，供后续步骤使用
+      invoiceRowsByBillNo.set(billNo, {
+        rows: invoiceRows,
+        splitConfig: splitConfig,
+        dimensions: dimensions,
+        orders: orders,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 同时初始化开票汇总数据（基于开票行数据）
+      const bill = billsNew.billPackages.find(b => b.billNo === billNo);
+      if (bill) {
+        const initialSummary = generateInvoiceSummaryFromRows(billNo, invoiceRows, bill.totalAmount);
+        invoiceSummaryByBillNo.set(billNo, initialSummary);
+        console.log("generateInvoiceRows - 初始化开票汇总:", initialSummary);
+      }
+      
+      return mockResponse(invoiceRows);
+    } catch (error) {
+      console.error('生成开票行失败:', error);
+      return mockError(500, `生成开票行失败: ${error.message}`);
+    }
+  },
+
+  /**
    * 获取发票抬头列表
    */
   getInvoiceTitles() {
@@ -373,31 +707,6 @@ const mockApi = {
       list: titles,
       total: titles.length
     });
-  },
-
-  /**
-   * 生成开票信息行（根据拆分配置）
-   */
-  generateInvoiceRows(billNo, splitConfig) {
-    const bill = billsNew.billPackages.find(b => b.billNo === billNo);
-    if (!bill) {
-      return mockError(10001, "账单不存在");
-    }
-
-    // 获取拆分维度
-    const dimensions = [];
-    if (splitConfig && splitConfig.dimensions) {
-      dimensions.push(...splitConfig.dimensions);
-    } else if (splitConfig && splitConfig.dimension1) {
-      dimensions.push(splitConfig.dimension1);
-      if (splitConfig.dimension2) {
-        dimensions.push(splitConfig.dimension2);
-      }
-    }
-
-    // 使用invoicesNew中的方法生成开票行
-    const invoiceRows = invoicesNew.generateInvoiceTable(billNo, dimensions);
-    return mockResponse(invoiceRows);
   },
 
   /**

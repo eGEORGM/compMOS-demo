@@ -3,23 +3,19 @@ import mockApi from '@/mock/index'
 import storage from '@/utils/storage'
 
 const state = {
-  // 明细设置配置
+  // 明细设置配置（用于列表页的订单明细展示）
   detailSettings: storage.getDetailSettings() || {
     enabled: false,
     dimensions: [],
     hierarchyOrder: []
   },
   
-  // 拆分汇总配置（用于开票等场景）
-  splitConfig: (() => {
-    const detailSettings = storage.getDetailSettings();
-    const dimensions = detailSettings ? detailSettings.dimensions || [] : [];
-    return {
-      dimension1: dimensions[0] || null,
-      dimension2: dimensions[1] || null,
-      dimensions
-    };
-  })(),
+  // 拆分汇总配置（用于开票页的数据拆分，独立管理）
+  splitConfig: storage.getSplitConfig() || {
+    dimension1: null,
+    dimension2: null,
+    dimensions: []
+  },
   
   // 字段配置
   fieldConfig: storage.getFieldConfig() || {
@@ -77,29 +73,16 @@ const getters = {
 }
 
 const mutations = {
-  // 设置明细设置
+  // 设置明细设置（仅用于列表页订单明细展示）
   SET_DETAIL_SETTINGS(state, settings) {
     state.detailSettings = settings
     storage.setDetailSettings(settings) // 持久化到LocalStorage
-    
-    // 同步更新 splitConfig
-    const dimensions = settings.dimensions || [];
-    state.splitConfig = {
-      dimension1: dimensions[0] || null,
-      dimension2: dimensions[1] || null,
-      dimensions
-    };
   },
   
-  // 设置拆分汇总配置
+  // 设置拆分汇总配置（仅用于开票页数据拆分，独立管理）
   SET_SPLIT_CONFIG(state, config) {
     state.splitConfig = config
-    // 同步更新 detailSettings
-    const dimensions = [];
-    if (config.dimension1) dimensions.push(config.dimension1);
-    if (config.dimension2) dimensions.push(config.dimension2);
-    state.detailSettings.dimensions = dimensions;
-    storage.setDetailSettings(state.detailSettings); // 持久化到LocalStorage
+    storage.setSplitConfig(config) // 持久化到独立的LocalStorage
   },
   
   // 设置字段配置
@@ -282,22 +265,25 @@ const actions = {
     return dispatch('updateDetailSettings', settings)
   },
   
-  // 保存拆分汇总配置
-  async saveSplitConfig({ commit, dispatch }, config) {
-    // 更新本地 splitConfig
-    commit('SET_SPLIT_CONFIG', config)
-    
-    // 构建 dimensions 数组
+  // 保存拆分汇总配置（独立保存，不影响明细设置）
+  async saveSplitConfig({ commit }, config) {
+    // 确保 dimensions 数组与 dimension1/dimension2 同步
     const dimensions = [];
     if (config.dimension1) dimensions.push(config.dimension1);
     if (config.dimension2) dimensions.push(config.dimension2);
     
-    // 同步更新 detailSettings（保持一致性）
-    return dispatch('updateDetailSettings', {
-      enabled: dimensions.length > 0,
-      dimensions,
-      hierarchyOrder: dimensions
-    })
+    const fullConfig = {
+      ...config,
+      dimensions
+    };
+    
+    // 更新本地 splitConfig（独立保存）
+    commit('SET_SPLIT_CONFIG', fullConfig)
+    
+    // 如果需要同步到后端API，可以在这里添加
+    // await mockApi.updateSplitConfig(fullConfig)
+    
+    return Promise.resolve({ success: true, data: fullConfig })
   }
 }
 
