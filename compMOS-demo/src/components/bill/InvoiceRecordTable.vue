@@ -71,7 +71,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template slot-scope="{ row }">
           <el-link
             v-if="row.status === 'completed' || row.status === 'flushed'"
@@ -89,6 +89,15 @@
             style="margin-left: 8px;"
           >
             红冲
+          </el-link>
+          <el-link
+            v-if="isVATInvoice(row) && row.status === 'completed' && !row.isFlushed"
+            type="danger"
+            :underline="false"
+            @click="handlePartialRedFlush(row)"
+            style="margin-left: 8px;"
+          >
+            部分红冲
           </el-link>
         </template>
       </el-table-column>
@@ -186,6 +195,122 @@
         <el-button type="primary" :loading="operating" @click="confirmReissue">确定换开</el-button>
       </span>
     </el-dialog>
+
+    <!-- 部分红冲对话框 -->
+    <el-dialog
+      title="部分红冲"
+      :visible.sync="partialRedFlushDialogVisible"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="dialog-content">
+        <p class="info-message">
+          <i class="el-icon-info"></i>
+          请上传包含部分红冲信息的Excel文件（.xlsx格式）
+        </p>
+        <div v-if="currentRecord" class="record-info">
+          <div class="info-row">
+            <span class="label">申请编号：</span>
+            <span class="value">{{ currentRecord.applicationNo }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">发票类型：</span>
+            <span class="value">{{ currentRecord.invoiceType }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">开票金额：</span>
+            <span class="value">{{ formatAmount(currentRecord.amount) }}</span>
+          </div>
+        </div>
+        <el-form :model="partialRedFlushForm" label-width="100px">
+          <el-form-item label="上传文件" required>
+            <el-upload
+              ref="fileUpload"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :limit="1"
+              accept=".xlsx,.xls"
+              :file-list="fileList"
+            >
+              <el-button size="small" type="primary" icon="el-icon-upload">选择文件</el-button>
+              <div slot="tip" class="el-upload__tip">只能上传xlsx/xls文件，且不超过10MB</div>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="红冲原因">
+            <el-input
+              v-model="partialRedFlushForm.reason"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入部分红冲原因"
+            ></el-input>
+          </el-form-item>
+        </el-form>
+        <p class="hint-message">部分红冲后，剩余金额仍可正常使用。</p>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="partialRedFlushDialogVisible = false">取消</el-button>
+        <el-button type="danger" :loading="operating" @click="confirmPartialRedFlush">确定部分红冲</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 行程单/火车票红冲对话框 -->
+    <el-dialog
+      :title="getItineraryRedFlushTitle()"
+      :visible.sync="itineraryRedFlushDialogVisible"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="dialog-content">
+        <p class="info-message">
+          <i class="el-icon-info"></i>
+          请上传包含需要红冲的票号/订单信息的Excel文件（.xlsx格式）
+        </p>
+        <div v-if="currentRecord" class="record-info">
+          <div class="info-row">
+            <span class="label">申请编号：</span>
+            <span class="value">{{ currentRecord.applicationNo }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">发票类型：</span>
+            <span class="value">{{ currentRecord.invoiceType }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">开票金额：</span>
+            <span class="value">{{ formatAmount(currentRecord.amount) }}</span>
+          </div>
+        </div>
+        <el-form :model="itineraryRedFlushForm" label-width="100px">
+          <el-form-item label="上传文件" required>
+            <el-upload
+              ref="itineraryFileUpload"
+              :auto-upload="false"
+              :on-change="handleItineraryFileChange"
+              :on-remove="handleItineraryFileRemove"
+              :limit="1"
+              accept=".xlsx,.xls"
+              :file-list="itineraryFileList"
+            >
+              <el-button size="small" type="primary" icon="el-icon-upload">选择文件</el-button>
+              <div slot="tip" class="el-upload__tip">只能上传xlsx/xls文件，且不超过10MB。文件需包含票号/订单号列</div>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="红冲原因">
+            <el-input
+              v-model="itineraryRedFlushForm.reason"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入红冲原因"
+            ></el-input>
+          </el-form-item>
+        </el-form>
+        <p class="hint-message">红冲后该发票将作废，可以进行换开操作。</p>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="itineraryRedFlushDialogVisible = false">取消</el-button>
+        <el-button type="warning" :loading="operating" @click="confirmItineraryRedFlush">确定红冲</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -238,6 +363,20 @@ export default {
           { validator: this.validateTaxNumberRule, trigger: "blur" }
         ]
       },
+      
+      // 部分红冲对话框
+      partialRedFlushDialogVisible: false,
+      partialRedFlushForm: {
+        reason: ""
+      },
+      fileList: [],
+      
+      // 行程单/火车票红冲对话框
+      itineraryRedFlushDialogVisible: false,
+      itineraryRedFlushForm: {
+        reason: ""
+      },
+      itineraryFileList: [],
       
       statusMap: {
         pending: "待处理",
@@ -308,8 +447,17 @@ export default {
     
     handleRedFlush(row) {
       this.currentRecord = row;
-      this.redFlushForm.reason = "";
-      this.redFlushDialogVisible = true;
+      
+      // 如果是行程单或火车票，打开上传文件对话框
+      if (this.isItineraryInvoice(row)) {
+        this.itineraryRedFlushForm.reason = "";
+        this.itineraryFileList = [];
+        this.itineraryRedFlushDialogVisible = true;
+      } else {
+        // 增值税发票使用普通红冲对话框
+        this.redFlushForm.reason = "";
+        this.redFlushDialogVisible = true;
+      }
     },
     
     async confirmRedFlush() {
@@ -388,6 +536,201 @@ export default {
     
     handleCurrentChange(val) {
       this.currentPage = val;
+    },
+    
+    /**
+     * 判断是否为增值税发票
+     */
+    isVATInvoice(row) {
+      if (!row || !row.invoiceType) return false;
+      const invoiceType = String(row.invoiceType);
+      // 增值税发票：包含"增值税"且不包含"行程单"
+      return invoiceType.includes("增值税") && !invoiceType.includes("行程单");
+    },
+    
+    /**
+     * 判断是否为行程单或火车票发票
+     */
+    isItineraryInvoice(row) {
+      if (!row || !row.invoiceType) return false;
+      const invoiceType = String(row.invoiceType);
+      // 行程单或火车票：包含"行程单"或"火车票"
+      return invoiceType.includes("行程单") || invoiceType.includes("火车票");
+    },
+    
+    /**
+     * 获取行程单/火车票红冲对话框标题
+     */
+    getItineraryRedFlushTitle() {
+      if (!this.currentRecord) return "红冲";
+      const invoiceType = String(this.currentRecord.invoiceType);
+      if (invoiceType.includes("机票")) {
+        return "机票行程单红冲";
+      } else if (invoiceType.includes("火车票")) {
+        return "火车票行程单红冲";
+      }
+      return "行程单红冲";
+    },
+    
+    /**
+     * 处理部分红冲
+     */
+    handlePartialRedFlush(row) {
+      this.currentRecord = row;
+      this.partialRedFlushForm.reason = "";
+      this.fileList = [];
+      this.partialRedFlushDialogVisible = true;
+    },
+    
+    /**
+     * 文件选择变化
+     */
+    handleFileChange(file, fileList) {
+      // 检查文件大小（10MB）
+      const isLt10M = file.raw.size / 1024 / 1024 < 10;
+      if (!isLt10M) {
+        showWarning("上传文件大小不能超过 10MB!");
+        this.fileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      // 检查文件类型
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        showWarning("只能上传 xlsx 或 xls 格式的文件!");
+        this.fileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      this.fileList = fileList;
+    },
+    
+    /**
+     * 文件移除
+     */
+    handleFileRemove(file, fileList) {
+      this.fileList = fileList;
+    },
+    
+    /**
+     * 确认部分红冲
+     */
+    async confirmPartialRedFlush() {
+      // 检查是否上传了文件
+      if (!this.fileList || this.fileList.length === 0) {
+        showWarning("请上传Excel文件");
+        return;
+      }
+      
+      // 检查红冲原因
+      if (!this.partialRedFlushForm.reason || this.partialRedFlushForm.reason.trim() === "") {
+        showWarning("请输入部分红冲原因");
+        return;
+      }
+      
+      this.operating = true;
+      
+      try {
+        // TODO: 实现部分红冲功能
+        // 这里应该调用API上传文件并处理部分红冲
+        const file = this.fileList[0].raw;
+        console.log("部分红冲文件:", file);
+        console.log("部分红冲原因:", this.partialRedFlushForm.reason);
+        console.log("申请编号:", this.currentRecord.applicationNo);
+        
+        // 模拟处理
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        showSuccess("部分红冲操作成功");
+        this.partialRedFlushDialogVisible = false;
+        this.fileList = [];
+        this.partialRedFlushForm.reason = "";
+        
+        // 刷新数据
+        this.$emit("refresh");
+      } catch (error) {
+        handleApiError(error, {
+          customMessage: "部分红冲操作失败"
+        });
+      } finally {
+        this.operating = false;
+      }
+    },
+    
+    /**
+     * 行程单/火车票文件选择变化
+     */
+    handleItineraryFileChange(file, fileList) {
+      // 检查文件大小（10MB）
+      const isLt10M = file.raw.size / 1024 / 1024 < 10;
+      if (!isLt10M) {
+        showWarning("上传文件大小不能超过 10MB!");
+        this.itineraryFileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      // 检查文件类型
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        showWarning("只能上传 xlsx 或 xls 格式的文件!");
+        this.itineraryFileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      this.itineraryFileList = fileList;
+    },
+    
+    /**
+     * 行程单/火车票文件移除
+     */
+    handleItineraryFileRemove(file, fileList) {
+      this.itineraryFileList = fileList;
+    },
+    
+    /**
+     * 确认行程单/火车票红冲
+     */
+    async confirmItineraryRedFlush() {
+      // 检查是否上传了文件
+      if (!this.itineraryFileList || this.itineraryFileList.length === 0) {
+        showWarning("请上传包含票号/订单信息的Excel文件");
+        return;
+      }
+      
+      // 检查红冲原因
+      if (!this.itineraryRedFlushForm.reason || this.itineraryRedFlushForm.reason.trim() === "") {
+        showWarning("请输入红冲原因");
+        return;
+      }
+      
+      this.operating = true;
+      
+      try {
+        // TODO: 实现行程单/火车票红冲功能
+        // 这里应该调用API上传文件并处理红冲
+        const file = this.itineraryFileList[0].raw;
+        console.log("行程单/火车票红冲文件:", file);
+        console.log("红冲原因:", this.itineraryRedFlushForm.reason);
+        console.log("申请编号:", this.currentRecord.applicationNo);
+        console.log("发票类型:", this.currentRecord.invoiceType);
+        
+        // 模拟处理
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        showSuccess("红冲操作成功");
+        this.itineraryRedFlushDialogVisible = false;
+        this.itineraryFileList = [];
+        this.itineraryRedFlushForm.reason = "";
+        
+        // 刷新数据
+        this.$emit("refresh");
+      } catch (error) {
+        handleApiError(error, {
+          customMessage: "红冲操作失败"
+        });
+      } finally {
+        this.operating = false;
+      }
     }
   }
 };

@@ -69,6 +69,7 @@
           @download="handleDownload"
           @red-flush="handleRedFlush"
           @reissue="handleReissue"
+          @refresh="loadData"
         ></invoice-record-table>
       </div>
     </div>
