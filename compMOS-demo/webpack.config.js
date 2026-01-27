@@ -11,7 +11,7 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, "dist"),
       filename: isDevelopment ? "js/[name].js" : "js/[name].[contenthash:8].js",
-      publicPath: "/"
+      publicPath: process.env.NODE_ENV === "production" ? "/compMOS-demo/" : "/"
     },
     resolve: {
       extensions: [".js", ".vue", ".json"],
@@ -75,6 +75,7 @@ module.exports = (env, argv) => {
     devServer: {
       contentBase: path.join(__dirname, "public"),
       compress: true,
+      host: "0.0.0.0",
       port: 8080,
       hot: true,
       open: true,
