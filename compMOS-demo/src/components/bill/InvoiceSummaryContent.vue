@@ -55,9 +55,6 @@
             <el-button icon="el-icon-download" @click="handleBatchDownload">
               批量下载发票
             </el-button>
-            <el-button icon="el-icon-info" @click="handleViewInsurance">
-              查看保险发票
-            </el-button>
           </div>
         </div>
 
@@ -430,10 +427,6 @@ export default {
       } finally {
         this.loading = false;
       }
-    },
-    
-    handleViewInsurance() {
-      showWarning("查看保险发票功能开发中");
     },
     
     /**
