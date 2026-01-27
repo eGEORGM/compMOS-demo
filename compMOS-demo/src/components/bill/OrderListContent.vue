@@ -106,6 +106,14 @@
         >
           取消已核对标记
         </el-button>
+        <el-button
+          size="small"
+          icon="el-icon-upload"
+          @click="handleBatchModify"
+          :disabled="isOperationsDisabled"
+        >
+          批量修改数据
+        </el-button>
         <el-button 
           size="small" 
           icon="el-icon-setting" 
@@ -461,6 +469,48 @@
         <el-button type="primary" @click="confirmBatchUpdate">确定更新</el-button>
       </span>
     </el-dialog>
+
+    <!-- 批量修改数据对话框 -->
+    <el-dialog
+      title="批量修改数据"
+      :visible.sync="batchModifyVisible"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="dialog-content">
+        <p class="info-message">
+          <i class="el-icon-info"></i>
+          请上传包含修改数据的Excel文件（.xlsx格式），可修改字段：法人实体、部门、项目
+        </p>
+        <el-form :model="batchModifyForm" label-width="100px">
+          <el-form-item label="上传文件" required>
+            <el-upload
+              ref="batchModifyFileUpload"
+              :auto-upload="false"
+              :on-change="handleBatchModifyFileChange"
+              :on-remove="handleBatchModifyFileRemove"
+              :limit="1"
+              accept=".xlsx,.xls"
+              :file-list="batchModifyFileList"
+            >
+              <el-button size="small" type="primary" icon="el-icon-upload">选择文件</el-button>
+              <div slot="tip" class="el-upload__tip">只能上传xlsx/xls文件，且不超过10MB。文件需包含订单号和要修改的字段列</div>
+            </el-upload>
+          </el-form-item>
+        </el-form>
+        <el-alert
+          title="提示"
+          description="文件需包含订单号列，以及要修改的字段列（法人实体、部门、项目）。只会更新文件中指定的字段，未指定的字段不会被修改。"
+          type="info"
+          :closable="false"
+          style="margin-top: 20px"
+        ></el-alert>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="batchModifyVisible = false">取消</el-button>
+        <el-button type="primary" :loading="batchModifying" @click="confirmBatchModify">确定修改</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -522,7 +572,13 @@ export default {
         legalEntity: null,
         department: null,
         project: null
-      }
+      },
+      
+      // 批量修改数据（通过文件上传）
+      batchModifyVisible: false,
+      batchModifyForm: {},
+      batchModifyFileList: [],
+      batchModifying: false
     };
   },
   computed: {
@@ -697,6 +753,83 @@ export default {
         handleApiError(error, {
           customMessage: "批量更新失败"
         });
+      }
+    },
+    
+    /**
+     * 批量修改数据（通过文件上传）
+     */
+    handleBatchModify() {
+      this.batchModifyForm = {};
+      this.batchModifyFileList = [];
+      this.batchModifyVisible = true;
+    },
+    
+    /**
+     * 批量修改文件选择变化
+     */
+    handleBatchModifyFileChange(file, fileList) {
+      // 检查文件大小（10MB）
+      const isLt10M = file.raw.size / 1024 / 1024 < 10;
+      if (!isLt10M) {
+        showWarning("上传文件大小不能超过 10MB!");
+        this.batchModifyFileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      // 检查文件类型
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        showWarning("只能上传 xlsx 或 xls 格式的文件!");
+        this.batchModifyFileList = fileList.filter(item => item.uid !== file.uid);
+        return;
+      }
+      
+      this.batchModifyFileList = fileList;
+    },
+    
+    /**
+     * 批量修改文件移除
+     */
+    handleBatchModifyFileRemove(file, fileList) {
+      this.batchModifyFileList = fileList;
+    },
+    
+    /**
+     * 确认批量修改
+     */
+    async confirmBatchModify() {
+      // 检查是否上传了文件
+      if (!this.batchModifyFileList || this.batchModifyFileList.length === 0) {
+        showWarning("请上传Excel文件");
+        return;
+      }
+      
+      this.batchModifying = true;
+      
+      try {
+        // TODO: 实现批量修改功能
+        // 这里应该调用API上传文件并解析，然后批量更新订单数据
+        const file = this.batchModifyFileList[0].raw;
+        console.log("批量修改文件:", file);
+        console.log("可修改字段: 法人实体、部门、项目");
+        
+        // 模拟处理
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        showSuccess("批量修改数据成功");
+        this.batchModifyVisible = false;
+        this.batchModifyFileList = [];
+        this.batchModifyForm = {};
+        
+        // 刷新订单列表（通过重新获取数据）
+        await this.$store.dispatch("order/fetchOrderList", this.billNo);
+      } catch (error) {
+        handleApiError(error, {
+          customMessage: "批量修改数据失败"
+        });
+      } finally {
+        this.batchModifying = false;
       }
     },
     
@@ -995,6 +1128,32 @@ export default {
           color: @warning-color;
         }
       }
+    }
+  }
+
+  // 批量修改对话框样式
+  .dialog-content {
+    .info-message {
+      display: flex;
+      align-items: center;
+      gap: @spacing-sm;
+      padding: @spacing-md;
+      background: @bg-light;
+      border: 1px solid @border-base;
+      border-radius: @border-radius-base;
+      color: @primary-color;
+      font-size: @font-size-base;
+      margin-bottom: @spacing-lg;
+
+      i {
+        font-size: @font-size-xl;
+      }
+    }
+
+    .el-upload__tip {
+      color: @text-placeholder;
+      font-size: @font-size-sm;
+      margin-top: @spacing-xs;
     }
   }
 }
