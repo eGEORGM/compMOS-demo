@@ -83,8 +83,10 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         invoiceSummary: "全部订单",
         amount: 42180.48,
         orderCount: 20,
-        quantity: 1,
-        unit: "元",
+        quantity: "",
+        unit: "/",
+        receiverEmail: "",
+        remark: "",
         // 拆分维度字段（即使没有拆分，也保留字段以便表格显示）
         businessLine: "",
         legalEntity: "",
@@ -94,7 +96,7 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         titleId: "",
         titleName: "",
         taxNumber: "",
-        // 接收人信息（扁平化）
+        // 接收人信息（扁平化，默认为空）
         receiverId: "",
         receiverName: "",
         receiverPhone: "",
@@ -109,8 +111,10 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         invoiceSummary: "全部订单",
         amount: 35000.04,
         orderCount: 15,
-        quantity: 1,
-        unit: "元",
+        quantity: "",
+        unit: "/",
+        receiverEmail: "",
+        remark: "",
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
@@ -120,7 +124,7 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         titleId: "",
         titleName: "",
         taxNumber: "",
-        // 接收人信息（扁平化）
+        // 接收人信息（扁平化，默认为空）
         receiverId: "",
         receiverName: "",
         receiverPhone: "",
@@ -135,8 +139,10 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         invoiceSummary: "全部订单",
         amount: 68499.96,
         orderCount: 25,
-        quantity: 25,
-        unit: "元",
+        quantity: "",
+        unit: "/",
+        receiverEmail: "",
+        remark: "",
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
@@ -146,7 +152,7 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         titleId: "",
         titleName: "",
         taxNumber: "",
-        // 接收人信息（扁平化）
+        // 接收人信息（扁平化，默认为空）
         receiverId: "",
         receiverName: "",
         receiverPhone: "",
@@ -161,8 +167,10 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         invoiceSummary: "全部订单",
         amount: 15000.00,
         orderCount: 5,
-        quantity: 5,
-        unit: "元",
+        quantity: "",
+        unit: "/",
+        receiverEmail: "",
+        remark: "",
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
@@ -172,7 +180,7 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         titleId: "",
         titleName: "",
         taxNumber: "",
-        // 接收人信息（扁平化）
+        // 接收人信息（扁平化，默认为空）
         receiverId: "",
         receiverName: "",
         receiverPhone: "",
@@ -322,8 +330,10 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
         invoiceSummary: "全部订单",
         amount: invoiceType.amount,
         orderCount: ordersForType.length || Math.floor(invoiceType.quantity * 2) || 10,
-        quantity: invoiceType.quantity,
-        unit: "元",
+        quantity: "",
+        unit: "/",
+        receiverEmail: "",
+        remark: "",
         // 拆分维度字段（即使没有拆分，也保留字段以便表格显示）
         businessLine: "",
         legalEntity: "",
@@ -333,7 +343,7 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
         titleId: "",
         titleName: "",
         taxNumber: "",
-        // 接收人信息（扁平化）
+        // 接收人信息（扁平化，默认为空）
         receiverId: "",
         receiverName: "",
         receiverPhone: "",
@@ -381,8 +391,10 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
               invoiceSummary: firstValue,
               amount: parseFloat(splitAmount.toFixed(2)),
               orderCount: splitOrderCount,
-              quantity: splitQuantity,
-              unit: "元",
+              quantity: "",
+              unit: "/",
+              receiverEmail: "",
+              remark: "",
               // 拆分维度字段
               businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : "",
               legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : "",
@@ -394,7 +406,7 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
               titleId: "",
               titleName: "",
               taxNumber: "",
-              // 接收人信息（扁平化，初始为空，用户需要填写）
+              // 接收人信息（扁平化，默认为空）
               receiverId: "",
               receiverName: "",
               receiverPhone: "",
@@ -432,8 +444,10 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
                 invoiceSummary: `${firstValue} - ${secondValue}`,
                 amount: parseFloat(splitAmount.toFixed(2)),
                 orderCount: splitOrderCount,
-                quantity: splitQuantity,
-                unit: "元",
+                quantity: "",
+                unit: "/",
+                receiverEmail: "",
+                remark: "",
                 // 拆分维度字段
                 businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : 
                              (secondDimension === SPLIT_DIMENSION.BUSINESS_LINE ? secondValue : ""),
@@ -449,7 +463,7 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
                 titleId: "",
                 titleName: "",
                 taxNumber: "",
-                // 接收人信息（扁平化，初始为空，用户需要填写）
+                // 接收人信息（扁平化，默认为空）
                 receiverId: "",
                 receiverName: "",
                 receiverPhone: "",
@@ -484,8 +498,10 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
               invoiceSummary: firstValue,
               amount: parseFloat(splitAmount.toFixed(2)),
               orderCount: splitOrderCount,
-              quantity: splitQuantity,
-              unit: "元",
+              quantity: "",
+              unit: "/",
+              receiverEmail: "",
+              remark: "",
               businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : "",
               legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : "",
               paymentAccount: firstDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? firstValue : "",
@@ -518,8 +534,10 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
                 invoiceSummary: `${firstValue} - ${secondValue}`,
                 amount: parseFloat(splitAmount.toFixed(2)),
                 orderCount: splitOrderCount,
-                quantity: splitQuantity,
-                unit: "元",
+                quantity: "",
+                unit: "/",
+                receiverEmail: "",
+                remark: "",
                 businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : 
                              (secondDimension === SPLIT_DIMENSION.BUSINESS_LINE ? secondValue : ""),
                 legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : 

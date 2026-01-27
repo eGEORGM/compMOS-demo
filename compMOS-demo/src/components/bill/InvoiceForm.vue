@@ -97,20 +97,6 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="规格" width="120">
-        <template slot-scope="{ row }">
-          <el-select
-            v-model="row.specification"
-            placeholder="请选择"
-            size="small"
-          >
-            <el-option label="标准" value="标准"></el-option>
-            <el-option label="大包装" value="大包装"></el-option>
-            <el-option label="小包装" value="小包装"></el-option>
-          </el-select>
-        </template>
-      </el-table-column>
-      
       <el-table-column label="单位" width="100">
         <template slot-scope="{ row }">
           <el-select
@@ -118,10 +104,14 @@
             placeholder="请选择"
             size="small"
           >
-            <el-option label="元" value="元"></el-option>
-            <el-option label="张" value="张"></el-option>
+            <el-option label="/" value="/"></el-option>
             <el-option label="次" value="次"></el-option>
+            <el-option label="天" value="天"></el-option>
+            <el-option label="个" value="个"></el-option>
             <el-option label="人" value="人"></el-option>
+            <el-option label="间夜" value="间夜"></el-option>
+            <el-option label="间" value="间"></el-option>
+            <el-option label="批" value="批"></el-option>
           </el-select>
         </template>
       </el-table-column>
@@ -129,13 +119,35 @@
       <el-table-column label="数量" width="100">
         <template slot-scope="{ row }">
           <el-input
-            v-model.number="row.quantity"
+            v-model="row.quantity"
             type="number"
             placeholder="请输入数量"
             size="small"
             :min="1"
             :max="99999"
             @change="handleQuantityChange(row)"
+          ></el-input>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="收件邮箱" width="200">
+        <template slot-scope="{ row }">
+          <el-input
+            v-model="row.receiverEmail"
+            placeholder="请输入收件邮箱"
+            size="small"
+          ></el-input>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="发票备注" width="200">
+        <template slot-scope="{ row }">
+          <el-input
+            v-model="row.remark"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入备注"
+            size="small"
           ></el-input>
         </template>
       </el-table-column>
@@ -354,7 +366,7 @@ export default {
               }
             }
             
-            // 处理接收人信息
+            // 处理接收人信息（默认为空，不设置默认值）
             if (newRow.recipient && typeof newRow.recipient === 'object') {
               newRow.receiverId = newRow.recipient.id || newRow.receiverId || "";
               newRow.receiverName = newRow.recipient.name || newRow.receiverName || "";
@@ -362,20 +374,16 @@ export default {
               newRow.receiverEmail = newRow.recipient.email || newRow.receiverEmail || "";
               newRow.receiverAddress = newRow.recipient.address || newRow.receiverAddress || "";
             }
-            if (!newRow.receiverId && this.receivers && this.receivers.length > 0) {
-              const defaultReceiver = this.receivers[0];
-              newRow.receiverId = defaultReceiver.id;
-              newRow.receiverName = defaultReceiver.name;
-              newRow.receiverPhone = defaultReceiver.phone;
-              newRow.receiverEmail = defaultReceiver.email;
-              newRow.receiverAddress = defaultReceiver.address;
-            }
+            // 收货人信息默认为空，不设置默认值
             
             // 确保其他字段有默认值
-            if (!newRow.unit) newRow.unit = "元";
-            if (!newRow.quantity) newRow.quantity = 1;
+            // 单位默认为「/」，数量、备注、收件邮箱默认为空
+            if (newRow.unit === undefined) newRow.unit = "/";
+            if (newRow.quantity === undefined) newRow.quantity = "";
+            if (newRow.remark === undefined) newRow.remark = "";
+            // 收件邮箱字段（独立于收货人信息）
+            if (newRow.receiverEmail === undefined) newRow.receiverEmail = "";
             if (!newRow.orderCount) newRow.orderCount = 0;
-            if (!newRow.specification) newRow.specification = "";
             if (newRow.isValid === undefined) newRow.isValid = false;
             if (newRow.amount === undefined || newRow.amount === null) newRow.amount = 0;
             if (!newRow.id) newRow.id = `invoice_row_${index}`;
@@ -443,11 +451,19 @@ export default {
     },
     
     handleQuantityChange(row) {
-      if (row.quantity < 1) {
-        row.quantity = 1;
-      }
-      if (row.quantity > 99999) {
-        row.quantity = 99999;
+      // 允许数量为空，如果填写了则进行范围校验
+      const quantity = row.quantity === "" || row.quantity === null || row.quantity === undefined 
+        ? "" 
+        : Number(row.quantity);
+      
+      if (quantity !== "") {
+        if (isNaN(quantity) || quantity < 1) {
+          row.quantity = "";
+        } else if (quantity > 99999) {
+          row.quantity = 99999;
+        } else {
+          row.quantity = quantity;
+        }
       }
       console.log("数量改变:", row);
     },
@@ -509,7 +525,8 @@ export default {
         this.$message.warning("请选择收货人");
         return false;
       }
-      if (!row.quantity || row.quantity < 1) {
+      // 数量可以为空，如果填写了则必须大于等于1
+      if (row.quantity !== "" && row.quantity !== null && row.quantity !== undefined && row.quantity < 1) {
         this.$message.warning("数量必须大于等于1");
         return false;
       }

@@ -62,6 +62,7 @@
             <!-- 开票中状态：一键开票和撤销确认 -->
             <template v-else-if="showInvoiceForm">
               <el-button @click="handleCancelConfirm">撤销确认</el-button>
+              <el-button icon="el-icon-download" @click="handleExportInvoiceInfo">导出开票信息</el-button>
             </template>
             <!-- 待付款状态：显示开票完成 -->
             <template v-else-if="currentBill.billStatus === BILL_STATUS.PENDING_PAYMENT">
@@ -76,99 +77,58 @@
       </el-card>
 
       <!-- 标签页和内容区域 -->
-      <el-row :gutter="16">
-        <!-- 左侧主内容区 -->
-        <el-col :xs="24" :lg="16">
-          <!-- 开票表单模式 -->
-          <el-card v-if="showInvoiceForm" class="tabs-card">
-            <div class="invoice-apply-header">
-              <h3 class="section-title">开票信息表</h3>
-            </div>
-            
-            <div v-loading="invoiceFormLoading" class="invoice-apply-content">
-              <!-- 开票信息表单 -->
-              <invoice-form
-                ref="invoiceForm"
-                :bill-no="billNo"
-                :invoice-rows="invoiceRows"
-                :titles="invoiceTitles"
-                :split-config="splitConfig"
-                @update="handleInvoiceFormUpdate"
-                @cancel="handleCancelConfirmFromInvoice"
-                @submit="handleSubmitInvoice"
-              ></invoice-form>
-            </div>
-          </el-card>
-          
-          <!-- 标签页（正常模式） -->
-          <el-card v-else class="tabs-card">
-            <el-tabs v-model="activeTab">
-              <!-- 开票汇总（开票中及以后状态显示） -->
-              <el-tab-pane
-                v-if="currentBill.billStatus >= BILL_STATUS.INVOICING"
-                label="开票汇总"
-                name="invoice"
-              >
-                <invoice-summary-content :bill-no="billNo"></invoice-summary-content>
-              </el-tab-pane>
+      <!-- 开票表单模式 -->
+      <el-card v-if="showInvoiceForm" class="tabs-card">
+        <div class="invoice-apply-header">
+          <h3 class="section-title">开票信息表</h3>
+        </div>
+        
+        <div v-loading="invoiceFormLoading" class="invoice-apply-content">
+          <!-- 开票信息表单 -->
+          <invoice-form
+            ref="invoiceForm"
+            :bill-no="billNo"
+            :invoice-rows="invoiceRows"
+            :titles="invoiceTitles"
+            :split-config="splitConfig"
+            @update="handleInvoiceFormUpdate"
+            @cancel="handleCancelConfirmFromInvoice"
+            @submit="handleSubmitInvoice"
+          ></invoice-form>
+        </div>
+      </el-card>
+      
+      <!-- 标签页（正常模式） -->
+      <el-card v-else class="tabs-card">
+        <el-tabs v-model="activeTab">
+          <!-- 开票汇总（开票中及以后状态显示） -->
+          <el-tab-pane
+            v-if="currentBill.billStatus >= BILL_STATUS.INVOICING"
+            label="开票汇总"
+            name="invoice"
+          >
+            <invoice-summary-content :bill-no="billNo"></invoice-summary-content>
+          </el-tab-pane>
 
-              <!-- 账单汇总（待确认和开票中状态显示） -->
-              <el-tab-pane
-                v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
-                label="账单汇总"
-                name="summary"
-              >
-                <bill-summary-content :bill="currentBill"></bill-summary-content>
-              </el-tab-pane>
+          <!-- 账单汇总（待确认和开票中状态显示） -->
+          <el-tab-pane
+            v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
+            label="账单汇总"
+            name="summary"
+          >
+            <bill-summary-content :bill="currentBill"></bill-summary-content>
+          </el-tab-pane>
 
-              <!-- 账单明细（包含各业务线子Tab，待确认和开票中状态显示） -->
-              <el-tab-pane
-                v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
-                label="账单明细"
-                name="orders"
-              >
-                <bill-orders-tab :bill-no="billNo"></bill-orders-tab>
-              </el-tab-pane>
-            </el-tabs>
-          </el-card>
-        </el-col>
-
-        <!-- 右侧边栏 -->
-        <el-col :xs="24" :lg="8">
-          <!-- 基本信息 -->
-          <el-card class="info-card">
-            <div slot="header" class="card-header">
-              <span>基本信息</span>
-            </div>
-            <div class="info-content">
-              <div class="info-item">
-                <span class="info-label">企业名称：</span>
-                <span class="info-value">{{ currentBill.companyName }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">企业ID：</span>
-                <span class="info-value">{{ currentBill.companyId }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">账单状态：</span>
-                <span class="info-value">
-                  <el-tag :type="getBillStatusType(currentBill.billStatus)" size="small">
-                    {{ getBillStatusName(currentBill.billStatus) }}
-                  </el-tag>
-                </span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">账单总额：</span>
-                <span class="info-value highlight">{{ formatAmount(currentBill.totalAmount) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">待开票金额：</span>
-                <span class="info-value">{{ formatAmount(currentBill.pendingInvoiceAmount) }}</span>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+          <!-- 账单明细（包含各业务线子Tab，待确认和开票中状态显示） -->
+          <el-tab-pane
+            v-if="currentBill.billStatus < BILL_STATUS.PENDING_PAYMENT"
+            label="账单明细"
+            name="orders"
+          >
+            <bill-orders-tab :bill-no="billNo"></bill-orders-tab>
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
     </div>
 
     <!-- 确认账单对话框 -->
@@ -939,6 +899,13 @@ export default {
     },
     
     /**
+     * 导出开票信息
+     */
+    handleExportInvoiceInfo() {
+      // TODO: 实现导出开票信息功能
+    },
+    
+    /**
      * 格式化账单周期范围
      */
     formatBillCycleRange(cycle) {
@@ -1086,43 +1053,6 @@ export default {
       }
     }
 
-    // 信息卡片
-    .info-card {
-      margin-bottom: @spacing-md;
-
-      .card-header {
-        font-weight: 600;
-      }
-
-      .info-content {
-        .info-item {
-          display: flex;
-          justify-content: space-between;
-          padding: @spacing-sm 0;
-          border-bottom: 1px dashed @border-light;
-
-          &:last-child {
-            border-bottom: none;
-          }
-
-          .info-label {
-            color: @text-secondary;
-            font-size: @font-size-sm;
-          }
-
-          .info-value {
-            color: @text-primary;
-            font-weight: 500;
-
-            &.highlight {
-              color: @primary-color;
-              font-size: @font-size-lg;
-              font-weight: 600;
-            }
-          }
-        }
-      }
-    }
   }
 
   // 对话框样式
