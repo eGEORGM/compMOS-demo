@@ -51,6 +51,88 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="下单日期">
+          <el-date-picker
+            v-model="filterForm.bookingDateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="yyyy-MM-dd"
+            value-format="yyyy-MM-dd"
+            style="width: 240px"
+          ></el-date-picker>
+        </el-form-item>
+
+        <el-form-item label="业务类型">
+          <el-select
+            v-model="filterForm.businessType"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option label="全部" :value="null"></el-option>
+            <el-option
+              v-for="(name, value) in businessTypeOptions"
+              :key="value"
+              :label="name"
+              :value="value"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="支付方式">
+          <el-select
+            v-model="filterForm.paymentAccount"
+            placeholder="全部"
+            clearable
+            style="width: 160px"
+          >
+            <el-option label="全部" :value="null"></el-option>
+            <el-option
+              v-for="account in paymentAccountOptions"
+              :key="account"
+              :label="account"
+              :value="account"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="费用归属">
+          <el-select
+            v-model="filterForm.costCenter"
+            placeholder="全部"
+            clearable
+            style="width: 160px"
+          >
+            <el-option label="全部" :value="null"></el-option>
+            <el-option
+              v-for="center in costCenterOptions"
+              :key="center"
+              :label="center"
+              :value="center"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="项目名称">
+          <el-select
+            v-model="filterForm.project"
+            placeholder="全部"
+            clearable
+            filterable
+            style="width: 160px"
+          >
+            <el-option label="全部" :value="null"></el-option>
+            <el-option
+              v-for="proj in projectOptions"
+              :key="proj"
+              :label="proj"
+              :value="proj"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+
         <el-form-item>
           <el-button 
             type="primary" 
@@ -522,7 +604,10 @@ import {
   LEGAL_ENTITY_OPTIONS,
   DEPARTMENT_OPTIONS,
   PROJECT_OPTIONS,
-  BILL_STATUS
+  BILL_STATUS,
+  BUSINESS_TYPE_NAMES,
+  PAYMENT_ACCOUNT_OPTIONS,
+  COST_CENTER_OPTIONS
 } from "@/utils/constants";
 import { formatAmount, formatDate } from "@/utils/format";
 import { showSuccess, showWarning, handleApiError, showError } from "@/utils/errorHandler";
@@ -554,11 +639,19 @@ export default {
         orderNo: "",
         checkStatus: null,
         travelerName: "",
-        legalEntity: null
+        legalEntity: null,
+        bookingDateRange: null,
+        businessType: null,
+        paymentAccount: null,
+        costCenter: null,
+        project: null
       },
       legalEntityOptions: LEGAL_ENTITY_OPTIONS,
       departmentOptions: DEPARTMENT_OPTIONS || [],
       projectOptions: PROJECT_OPTIONS || [],
+      businessTypeOptions: BUSINESS_TYPE_NAMES,
+      paymentAccountOptions: PAYMENT_ACCOUNT_OPTIONS,
+      costCenterOptions: COST_CENTER_OPTIONS,
       fieldConfigVisible: false,
       exporting: false,
       
@@ -619,6 +712,44 @@ export default {
       if (this.filterForm.legalEntity) {
         orders = orders.filter(
           order => order.legalEntity === this.filterForm.legalEntity
+        );
+      }
+      
+      // 下单日期筛选
+      if (this.filterForm.bookingDateRange && this.filterForm.bookingDateRange.length === 2) {
+        const [startDate, endDate] = this.filterForm.bookingDateRange;
+        orders = orders.filter(order => {
+          if (!order.bookingTime) return false;
+          const bookingDate = order.bookingTime.split(' ')[0]; // 提取日期部分
+          return bookingDate >= startDate && bookingDate <= endDate;
+        });
+      }
+      
+      // 业务类型筛选
+      if (this.filterForm.businessType) {
+        orders = orders.filter(
+          order => order.businessType === this.filterForm.businessType
+        );
+      }
+      
+      // 支付方式筛选
+      if (this.filterForm.paymentAccount) {
+        orders = orders.filter(
+          order => order.paymentAccount === this.filterForm.paymentAccount
+        );
+      }
+      
+      // 费用归属筛选
+      if (this.filterForm.costCenter) {
+        orders = orders.filter(
+          order => order.costCenter === this.filterForm.costCenter
+        );
+      }
+      
+      // 项目名称筛选
+      if (this.filterForm.project) {
+        orders = orders.filter(
+          order => order.project === this.filterForm.project
         );
       }
       
@@ -898,7 +1029,12 @@ export default {
         orderNo: "",
         checkStatus: null,
         travelerName: "",
-        legalEntity: null
+        legalEntity: null,
+        bookingDateRange: null,
+        businessType: null,
+        paymentAccount: null,
+        costCenter: null,
+        project: null
       };
     },
     
