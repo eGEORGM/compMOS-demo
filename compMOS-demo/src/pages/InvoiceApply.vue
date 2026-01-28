@@ -14,14 +14,14 @@
 
     <div v-loading="loading" class="invoice-apply-content">
       <!-- 拆分汇总按钮 -->
-      <el-card class="action-card">
+      <el-card class="action-card" shadow="never">
         <el-button icon="el-icon-folder-opened" @click="handleSplitConfig">
           拆分汇总
         </el-button>
       </el-card>
 
       <!-- 开票信息表单 -->
-      <el-card class="form-card">
+      <el-card class="form-card" shadow="never">
         <h3 class="section-title">开票信息</h3>
         <invoice-form
           ref="invoiceForm"

@@ -23,7 +23,7 @@ export default {
   .page-content {
     background: white;
     padding: 24px;
-    border-radius: 4px;
+    border-radius: 8px;
   }
 }
 </style>

@@ -299,9 +299,9 @@ export default {
     justify-content: space-between;
     align-items: center;
     padding: 16px 24px;
-    background: linear-gradient(135deg, #5b8ff9 0%, #7aa3f7 100%);
+    background: linear-gradient(135deg, #2555FF 0%, #5580FF 100%);
     color: #ffffff;
-    border-radius: 4px;
+    border-radius: 8px;
     margin-bottom: 24px;
 
     .amount-info {
@@ -353,7 +353,7 @@ export default {
     .detail-tree {
       background: #ffffff;
       border: 1px solid #e8e8e8;
-      border-radius: 4px;
+      border-radius: 8px;
 
       /deep/ .custom-tree {
         background: #ffffff;
@@ -443,7 +443,7 @@ export default {
       .stat-card {
         background: #ffffff;
         border: 1px solid #e8e8e8;
-        border-radius: 4px;
+        border-radius: 8px;
         padding: 16px;
 
         .stat-header {
@@ -484,7 +484,7 @@ export default {
     .stat-item {
       background: #fafafa;
       padding: 16px;
-      border-radius: 4px;
+      border-radius: 8px;
       text-align: center;
 
       .stat-label {
@@ -496,7 +496,7 @@ export default {
       .stat-number {
         font-size: 24px;
         font-weight: 600;
-        color: #1890ff;
+        color: #2555FF;
       }
     }
   }

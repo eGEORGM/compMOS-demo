@@ -51,7 +51,7 @@ export const BUSINESS_TYPE_NAMES = {
 // 业务类型颜色映射
 export const BUSINESS_TYPE_COLORS = {
   [BUSINESS_TYPE.FLIGHT]: "#67c23a", // 绿色
-  [BUSINESS_TYPE.HOTEL]: "#409eff", // 蓝色
+  [BUSINESS_TYPE.HOTEL]: "#2555FF", // 蓝色
   [BUSINESS_TYPE.TRAIN]: "#e6a23c", // 橙色
   [BUSINESS_TYPE.CAR]: "#909399" // 灰色
 };
@@ -83,7 +83,7 @@ export const INVOICE_TYPE_SHORT_NAMES = {
 // 发票类型颜色映射
 export const INVOICE_TYPE_COLORS = {
   [INVOICE_TYPE.GENERAL]: "#67c23a", // 绿色
-  [INVOICE_TYPE.SPECIAL]: "#409eff", // 蓝色
+  [INVOICE_TYPE.SPECIAL]: "#2555FF", // 蓝色
   [INVOICE_TYPE.FLIGHT_ITINERARY]: "#9b59b6", // 紫色
   [INVOICE_TYPE.TRAIN_ITINERARY]: "#e6a23c" // 橙色
 };

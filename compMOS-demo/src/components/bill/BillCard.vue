@@ -1,5 +1,5 @@
 <template>
-  <el-card class="bill-card" :body-style="{ padding: '20px' }" shadow="hover" @click.native="handleClick">
+  <el-card class="bill-card" :body-style="{ padding: '20px' }" shadow="never" @click.native="handleClick">
     <div class="bill-card-header">
       <div class="bill-info">
         <h3 class="bill-no">{{ bill.billNo }}</h3>

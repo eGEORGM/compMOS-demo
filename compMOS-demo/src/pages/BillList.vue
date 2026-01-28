@@ -465,6 +465,12 @@ export default {
         font-weight: 500;
         color: @text-primary;
       }
+
+      // 表格内操作按钮样式
+      /deep/ .el-button--text {
+        font-size: 14px;
+        font-weight: normal;
+      }
     }
 
     .empty-state {

@@ -15,7 +15,7 @@
     <!-- 账单内容 -->
     <div v-else-if="currentBill" class="bill-content">
       <!-- 流程步骤条 -->
-      <el-card class="steps-card">
+      <el-card class="steps-card" shadow="never">
         <el-steps :active="currentStep" finish-status="success" align-center>
           <el-step title="确认账单">
             <template v-if="currentBill && currentBill.confirmTime">
@@ -43,7 +43,7 @@
       </div>
 
       <!-- 日期和操作区域 -->
-      <el-card class="action-card">
+      <el-card class="action-card" shadow="never">
         <div class="action-header">
           <div class="date-range">
             <i class="el-icon-date"></i>
@@ -78,7 +78,7 @@
 
       <!-- 标签页和内容区域 -->
       <!-- 开票表单模式 -->
-      <el-card v-if="showInvoiceForm" class="tabs-card">
+      <el-card v-if="showInvoiceForm" class="tabs-card" shadow="never">
         <div class="invoice-apply-header">
           <h3 class="section-title">开票信息表</h3>
         </div>
@@ -99,7 +99,7 @@
       </el-card>
       
       <!-- 标签页（正常模式） -->
-      <el-card v-else class="tabs-card">
+      <el-card v-else class="tabs-card" shadow="never">
         <el-tabs v-model="activeTab">
           <!-- 开票汇总（开票中及以后状态显示） -->
           <el-tab-pane
@@ -1007,6 +1007,77 @@ export default {
         font-size: @font-size-sm;
         margin-top: @spacing-xs;
       }
+
+      // 步骤条样式覆盖
+      /deep/ .el-steps {
+        // 当前进行中的步骤
+        .el-step__head.is-process {
+          .el-step__icon {
+            background-color: #2555FF;
+            border-color: #2555FF;
+            
+            .el-step__icon-inner {
+              color: #ffffff;
+            }
+          }
+          
+          .el-step__line {
+            background-color: #e4e7ed;
+          }
+        }
+
+        // 未完成的步骤
+        .el-step__head.is-wait {
+          .el-step__icon {
+            background-color: #ffffff;
+            border-color: #c0c4cc;
+            
+            .el-step__icon-inner {
+              color: #c0c4cc;
+            }
+          }
+          
+          .el-step__line {
+            background-color: #e4e7ed;
+          }
+        }
+
+        // 已完成的步骤
+        .el-step__head.is-success,
+        .el-step__head.is-finish {
+          .el-step__icon {
+            background-color: #2555FF;
+            border-color: #2555FF;
+            
+            .el-step__icon-inner {
+              color: #ffffff;
+            }
+          }
+          
+          .el-step__line {
+            background-color: #2555FF;
+          }
+        }
+
+        // 步骤标题
+        .el-step__title {
+          &.is-process {
+            color: #303133;
+            font-weight: normal;
+          }
+          
+          &.is-wait {
+            color: #c0c4cc;
+            font-weight: normal;
+          }
+          
+          &.is-success,
+          &.is-finish {
+            color: #303133;
+            font-weight: normal;
+          }
+        }
+      }
     }
 
     // 操作卡片
@@ -1124,7 +1195,7 @@ export default {
       border: 1px solid #ffe0a3;
       color: #8a6d1b;
       padding: 8px 12px;
-      border-radius: 4px;
+      border-radius: 8px;
       margin: 8px 0 12px 0;
     }
   }

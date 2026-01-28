@@ -758,6 +758,14 @@ export default {
     justify-content: flex-end;
   }
 
+  // 表格内操作链接样式
+  /deep/ .el-table {
+    .el-link {
+      font-size: 14px;
+      font-weight: normal;
+    }
+  }
+
   .text-ellipsis {
     overflow: hidden;
     text-overflow: ellipsis;

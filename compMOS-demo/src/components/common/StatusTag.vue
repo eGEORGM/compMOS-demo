@@ -73,6 +73,7 @@ export default {
       if (!color) return "info";
       // Element UI标签类型映射
       const colorMap = {
+        "#2555FF": "primary",
         "#409eff": "primary",
         "#67c23a": "success",
         "#e6a23c": "warning",

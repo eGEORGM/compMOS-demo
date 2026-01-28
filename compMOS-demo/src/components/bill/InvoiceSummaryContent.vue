@@ -505,7 +505,7 @@ export default {
       }
 
       .remaining-amount-card {
-        background: #409eff; // 蓝色背景
+        background: #2555FF; // 蓝色背景
         
         .amount-label {
           color: #ffffff; // 白色文字
@@ -571,8 +571,8 @@ export default {
     .filter-preview {
       margin-top: @spacing-lg;
       padding: @spacing-md;
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
+      background: #E8EEFF;
+      border: 1px solid #B3C5FF;
       border-radius: @border-radius-base;
 
       .preview-title {

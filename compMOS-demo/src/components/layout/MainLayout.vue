@@ -100,7 +100,7 @@ export default {
         padding: 8px 16px;
         cursor: pointer;
         color: @text-white;
-        border-radius: 4px;
+        border-radius: 8px;
         transition: background-color 0.2s;
 
         &:hover {

@@ -230,8 +230,8 @@ export default {
   .config-preview {
     margin-top: @spacing-lg;
     padding: @spacing-md;
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
+    background: #E8EEFF;
+    border: 1px solid #B3C5FF;
     border-radius: @border-radius-base;
 
     .preview-title {
@@ -262,7 +262,7 @@ export default {
       .preview-hint {
         margin: @spacing-sm 0 0;
         padding-top: @spacing-sm;
-        border-top: 1px dashed #bae6fd;
+        border-top: 1px dashed #B3C5FF;
         font-size: @font-size-sm;
         color: @text-secondary;
         line-height: 1.6;
