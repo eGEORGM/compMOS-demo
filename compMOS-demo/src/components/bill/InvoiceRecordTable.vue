@@ -152,7 +152,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <p class="hint-message">红冲后该发票将作废，可以进行换开操作。</p>
+        <div class="info-banner">
+          <div class="info-icon"></div>
+          <div class="info-content">红冲后该发票将作废，可以进行换开操作。</div>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="redFlushDialogVisible = false">取消</el-button>
@@ -246,7 +249,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <p class="hint-message">部分红冲后，剩余金额仍可正常使用。</p>
+        <div class="info-banner">
+          <div class="info-icon"></div>
+          <div class="info-content">部分红冲后，剩余金额仍可正常使用。</div>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="partialRedFlushDialogVisible = false">取消</el-button>
@@ -304,7 +310,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <p class="hint-message">红冲后该发票将作废，可以进行换开操作。</p>
+        <div class="info-banner">
+          <div class="info-icon"></div>
+          <div class="info-content">红冲后该发票将作废，可以进行换开操作。</div>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="itineraryRedFlushDialogVisible = false">取消</el-button>
@@ -823,12 +832,6 @@ export default {
       }
     }
 
-    .hint-message {
-      color: @text-placeholder;
-      font-size: @font-size-sm;
-      margin: @spacing-md 0 0;
-      text-align: center;
-    }
   }
 }
 </style>

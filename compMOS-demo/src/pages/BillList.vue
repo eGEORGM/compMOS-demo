@@ -414,13 +414,30 @@ export default {
       padding: @spacing-md @spacing-lg;
     }
 
+    /deep/ .el-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
     /deep/ .el-form-item {
-      margin-bottom: 0;
-      margin-right: @spacing-md;
+      margin-bottom: @spacing-sm;
+      margin-right: @spacing-lg + 16px;
+      margin-left: 0;
     }
 
     /deep/ .el-date-editor {
-      width: 240px;
+      width: 300px;
+
+      // 确保范围选择器中间的「至」能完整显示
+      &.el-range-editor {
+        .el-range-separator {
+          flex-shrink: 0;
+          min-width: 32px;
+          padding: 0 6px;
+          text-align: center;
+        }
+      }
     }
 
     /deep/ .el-select {

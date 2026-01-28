@@ -481,13 +481,10 @@
       :close-on-click-modal="false"
     >
       <el-form :model="batchUpdateForm" label-width="100px">
-        <el-alert
-          title="批量更新提示"
-          :description="`即将更新 ${selectedOrders.length} 笔订单的数据，请选择要修改的字段`"
-          type="info"
-          :closable="false"
-          style="margin-bottom: 20px"
-        ></el-alert>
+        <div class="info-banner" style="margin-bottom: 20px">
+          <div class="info-icon"></div>
+          <div class="info-content">即将更新 {{ selectedOrders.length }} 笔订单的数据，请选择要修改的字段</div>
+        </div>
         
         <el-form-item label="法人实体">
           <el-select
@@ -539,11 +536,10 @@
           </el-select>
         </el-form-item>
         
-        <el-alert
-          title="只会更新您选择的字段，未选择的字段不会被修改"
-          type="warning"
-          :closable="false"
-        ></el-alert>
+        <div class="info-banner">
+          <div class="info-icon"></div>
+          <div class="info-content">只会更新您选择的字段，未选择的字段不会被修改</div>
+        </div>
       </el-form>
       
       <span slot="footer" class="dialog-footer">
@@ -580,13 +576,10 @@
             </el-upload>
           </el-form-item>
         </el-form>
-        <el-alert
-          title="提示"
-          description="文件需包含订单号列，以及要修改的字段列（法人实体、部门、项目）。只会更新文件中指定的字段，未指定的字段不会被修改。"
-          type="info"
-          :closable="false"
-          style="margin-top: 20px"
-        ></el-alert>
+        <div class="info-banner" style="margin-top: 20px">
+          <div class="info-icon"></div>
+          <div class="info-content">文件需包含订单号列，以及要修改的字段列（法人实体、部门、项目）。只会更新文件中指定的字段，未指定的字段不会被修改。</div>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="batchModifyVisible = false">取消</el-button>

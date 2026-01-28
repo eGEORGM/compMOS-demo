@@ -37,9 +37,12 @@
     </el-card>
 
       <!-- 拆分配置提示条：未配置时提示用户配置拆分维度 -->
-      <div v-if="!splitConfigured" class="split-config-banner">
-        <span>建议配置拆分汇总维度以更准确地生成开票信息</span>
-        <el-button type="primary" size="mini" @click="openSplitConfig">立即配置</el-button>
+      <div v-if="!splitConfigured" class="info-banner">
+        <div class="info-icon"></div>
+        <div class="info-content">建议配置拆分汇总维度以更准确地生成开票信息</div>
+        <div class="info-action">
+          <el-button type="primary" size="mini" @click="openSplitConfig">立即配置</el-button>
+        </div>
       </div>
 
       <!-- 日期和操作区域 -->
@@ -1185,19 +1188,6 @@ export default {
       }
     }
 
-    // 拆分配置提示条
-    .split-config-banner {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      background: #fff8e1;
-      border: 1px solid #ffe0a3;
-      color: #8a6d1b;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin: 8px 0 12px 0;
-    }
   }
   
 </style>
