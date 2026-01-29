@@ -85,7 +85,7 @@
           </el-link>
           <el-link
             v-if="row.status === 'completed' && !row.isFlushed"
-            type="warning"
+            type="primary"
             :underline="false"
             @click="handleRedFlush(row)"
             style="margin-left: 8px;"
@@ -94,7 +94,7 @@
           </el-link>
           <el-link
             v-if="isVATInvoice(row) && row.status === 'completed' && !row.isFlushed"
-            type="danger"
+            type="primary"
             :underline="false"
             @click="handlePartialRedFlush(row)"
             style="margin-left: 8px;"
@@ -773,8 +773,43 @@ export default {
     justify-content: flex-end;
   }
 
-  // 表格内操作链接样式
+  // 表格样式统一
   /deep/ .el-table {
+    border: none;
+    
+    &::before {
+      display: none;
+    }
+    
+    &::after {
+      display: none;
+    }
+    
+    th, td {
+      border-right: none;
+    }
+    
+    th.el-table__cell {
+      background: #fafafa;
+      color: @text-primary;
+      font-weight: 600;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    
+    .el-table__body tr {
+      &:hover > td {
+        background-color: #f5f7fa;
+      }
+    }
+    
+    .el-table__body td {
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .el-table__row--striped td {
+      background: #fafafa;
+    }
+    
     .el-link {
       font-size: 14px;
       font-weight: normal;

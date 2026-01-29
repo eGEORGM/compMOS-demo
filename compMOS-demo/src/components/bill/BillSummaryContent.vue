@@ -6,9 +6,9 @@
         <span class="amount-label">消费金额：</span>
         <span class="amount-value">{{ formatAmount(bill.totalAmount) }}</span>
       </div>
-      <el-button size="small" type="text" @click="handleDetailSettings">
+      <el-link type="primary" :underline="false" @click="handleDetailSettings">
         明细设置
-      </el-button>
+      </el-link>
     </div>
 
     <!-- 明细展示区域 -->

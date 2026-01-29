@@ -49,6 +49,7 @@
           <div class="date-range">
             <i class="el-icon-date"></i>
             {{ formatBillCycleRange(currentBill.settlementCycle) }}
+            <StatusTag type="bill" :status="currentBill.billStatus" size="small" />
           </div>
           <div class="action-buttons">
             <!-- 待确认状态：确认账单按钮 -->
@@ -64,10 +65,6 @@
             <template v-else-if="showInvoiceForm">
               <el-button @click="handleCancelConfirm">撤销确认</el-button>
               <el-button icon="el-icon-download" @click="handleExportInvoiceInfo">导出开票信息</el-button>
-            </template>
-            <!-- 待付款状态：显示开票完成 -->
-            <template v-else-if="currentBill.billStatus === BILL_STATUS.PENDING_PAYMENT">
-              <el-tag type="success">开票完成</el-tag>
             </template>
             <!-- 所有状态都显示拆分汇总 -->
             <el-button icon="el-icon-folder-opened" @click="handleDetailSettings">拆分汇总</el-button>
@@ -101,7 +98,7 @@
       
       <!-- 标签页（正常模式） -->
       <el-card v-else class="tabs-card" shadow="never">
-        <el-tabs v-model="activeTab">
+        <el-tabs v-model="activeTab" :class="{ 'tabs-single': visibleTabCount <= 1 }">
           <!-- 开票汇总（开票中及以后状态显示） -->
           <el-tab-pane
             v-if="currentBill.billStatus >= BILL_STATUS.INVOICING"
@@ -199,6 +196,7 @@ import BillOrdersTab from "@/components/bill/BillOrdersTab.vue";
 import InvoiceSummaryContent from "@/components/bill/InvoiceSummaryContent.vue";
 import InvoiceForm from "@/components/bill/InvoiceForm.vue";
 import InvoiceSplitConfig from "@/components/bill/InvoiceSplitConfig.vue";
+import StatusTag from "@/components/common/StatusTag.vue";
 
 export default {
   name: "BillDetail",
@@ -207,7 +205,8 @@ export default {
     BillOrdersTab,
     InvoiceSummaryContent,
     InvoiceForm,
-    InvoiceSplitConfig
+    InvoiceSplitConfig,
+    StatusTag
   },
   data() {
     return {
@@ -269,6 +268,18 @@ export default {
       };
 
       return statusStepMap[this.currentBill.billStatus] || 0;
+    },
+    
+    /**
+     * 当前可见的 tab 数量（用于决定是否显示 tab 栏）
+     */
+    visibleTabCount() {
+      if (!this.currentBill) return 0;
+      const status = this.currentBill.billStatus;
+      let count = 0;
+      if (status >= BILL_STATUS.INVOICING) count += 1;   // 开票汇总
+      if (status < BILL_STATUS.PENDING_PAYMENT) count += 2; // 账单汇总 + 账单明细
+      return count;
     },
     
     /**
@@ -1043,7 +1054,7 @@ export default {
           }
         }
 
-        // 已完成的步骤
+        // 已完成的步骤（连接线改为蓝色）
         .el-step__head.is-success,
         .el-step__head.is-finish {
           .el-step__icon {
@@ -1057,6 +1068,11 @@ export default {
           
           .el-step__line {
             background-color: #2555FF;
+            border-color: #2555FF;
+            
+            .el-step__line-inner {
+              border-color: #2555FF !important;
+            }
           }
         }
 
@@ -1091,13 +1107,16 @@ export default {
         justify-content: space-between;
 
         .date-range {
+          display: flex;
+          align-items: center;
+          gap: @spacing-md;
           font-size: @font-size-lg;
           font-weight: 600;
           color: @text-primary;
 
           i {
             margin-right: @spacing-sm;
-            color: @primary-color;
+            color: @text-secondary;
           }
         }
 
@@ -1111,6 +1130,11 @@ export default {
     // Tab卡片
     .tabs-card {
       min-height: 500px;
+      
+      // 只有一个 tab 时不显示 tab 栏
+      /deep/ .el-tabs.tabs-single .el-tabs__header {
+        display: none;
+      }
       
       // 开票表单头部
       .invoice-apply-header {

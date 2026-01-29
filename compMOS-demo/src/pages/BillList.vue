@@ -78,7 +78,7 @@
       <el-table
         v-loading="loading"
         :data="billList"
-        border
+        stripe
         style="width: 100%"
         @row-click="handleRowClick"
         class="bill-table"
@@ -149,13 +149,13 @@
 
         <el-table-column label="操作" width="100" fixed="right" align="center">
           <template slot-scope="{ row }">
-            <el-button
-              type="text"
-              size="small"
+            <el-link
+              type="primary"
+              :underline="false"
               @click.stop="handleViewDetail(row)"
             >
               查看
-            </el-button>
+            </el-link>
           </template>
         </el-table-column>
       </el-table>
@@ -470,23 +470,53 @@ export default {
     }
 
     .bill-table {
-      /deep/ .el-table__row {
-        cursor: pointer;
-
-        &:hover {
-          background-color: #f5f7fa;
+      /deep/ .el-table {
+        border: none;
+        
+        &::before {
+          display: none;
+        }
+        
+        &::after {
+          display: none;
+        }
+        
+        th, td {
+          border-right: none;
+        }
+        
+        th.el-table__cell {
+          background: #fafafa;
+          color: @text-primary;
+          font-weight: 600;
+          border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .el-table__body tr {
+          cursor: pointer;
+          
+          &:hover > td {
+            background-color: #f5f7fa;
+          }
+        }
+        
+        .el-table__body td {
+          border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .el-table__row--striped td {
+          background: #fafafa;
+        }
+        
+        .el-link {
+          font-size: 14px;
+          font-weight: normal;
         }
       }
       
       .amount-text {
         font-weight: 500;
         color: @text-primary;
-      }
-
-      // 表格内操作按钮样式
-      /deep/ .el-button--text {
-        font-size: 14px;
-        font-weight: normal;
       }
     }
 

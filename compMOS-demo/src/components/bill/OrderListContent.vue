@@ -150,22 +150,15 @@
     <!-- 操作工具栏 -->
     <div class="toolbar-section">
       <div class="toolbar-left">
-        <el-button
-          size="small"
-          type="primary"
-          @click="handleSelectAll"
+        <el-checkbox
+          v-model="isAllSelected"
+          @change="handleToggleSelectAll"
           :disabled="isOperationsDisabled || totalOrderCount === 0"
         >
-          选中全部列表 ({{ totalOrderCount }}笔)
-        </el-button>
-        <span v-if="selectedOrders.length > 0" class="selection-info">
-          已选择 {{ selectedOrders.length }} 笔订单
-        </span>
-      </div>
-      <div class="toolbar-actions">
+          选中全部列表({{ totalOrderCount }}笔)
+        </el-checkbox>
         <el-button
           size="small"
-          icon="el-icon-edit"
           @click="handleBatchUpdate"
           :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
@@ -173,8 +166,6 @@
         </el-button>
         <el-button
           size="small"
-          icon="el-icon-check"
-          type="success"
           @click="handleMarkAsChecked"
           :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
@@ -182,37 +173,34 @@
         </el-button>
         <el-button
           size="small"
-          icon="el-icon-close"
           @click="handleUnmarkChecked"
           :disabled="isOperationsDisabled || selectedOrders.length === 0"
         >
           取消已核对标记
         </el-button>
+      </div>
+      <div class="toolbar-right">
         <el-button
           size="small"
-          icon="el-icon-upload"
           @click="handleBatchModify"
           :disabled="isOperationsDisabled"
         >
           批量修改数据
         </el-button>
         <el-button 
-          size="small" 
-          icon="el-icon-setting" 
+          size="small"
           @click="handleFieldConfig"
         >
           对账单字段配置
         </el-button>
         <el-button 
-          size="small" 
-          icon="el-icon-download" 
+          size="small"
           @click="handleExportExcel"
         >
           导出Excel
         </el-button>
         <el-button 
-          size="small" 
-          icon="el-icon-download" 
+          size="small"
           @click="handleExportPDF"
         >
           导出PDF
@@ -773,6 +761,17 @@ export default {
       return this.orderList.filter(
         order => order.businessType === this.businessType
       ).length;
+    },
+    
+    // 是否全选了当前页面的所有订单
+    isAllSelected: {
+      get() {
+        if (this.filteredOrders.length === 0) return false;
+        return this.selectedOrders.length === this.filteredOrders.length;
+      },
+      set(value) {
+        // setter由handleToggleSelectAll处理
+      }
     }
   },
   methods: {
@@ -815,7 +814,7 @@ export default {
     },
     
     /**
-     * 选中全部列表
+     * 选中全部列表（保留旧方法以兼容）
      */
     handleSelectAll() {
       // 选中当前业务类型的所有订单
@@ -831,6 +830,25 @@ export default {
       });
       
       showSuccess(`已选中全部 ${allOrders.length} 笔订单`);
+    },
+    
+    /**
+     * 切换全选/取消全选（正反选）
+     */
+    handleToggleSelectAll(checked) {
+      this.$nextTick(() => {
+        if (checked) {
+          // 全选当前筛选后的订单
+          this.filteredOrders.forEach(row => {
+            this.$refs.orderTable.toggleRowSelection(row, true);
+          });
+          showSuccess(`已选中全部 ${this.filteredOrders.length} 笔订单`);
+        } else {
+          // 取消全选
+          this.$refs.orderTable.clearSelection();
+          showSuccess('已取消全部选择');
+        }
+      });
     },
     
     /**
@@ -1170,27 +1188,32 @@ export default {
     justify-content: space-between;
     align-items: center;
     margin-bottom: @spacing-md;
+    gap: @spacing-md;
 
     .toolbar-left {
       display: flex;
       align-items: center;
-      gap: @spacing-md;
+      gap: @spacing-sm;
       
-      .selection-info {
-        color: @text-secondary;
-        font-size: @font-size-sm;
+      /deep/ .el-checkbox {
+        margin-right: @spacing-sm;
+        
+        .el-checkbox__label {
+          color: @text-primary;
+          font-size: @font-size-base;
+        }
       }
     }
 
-    .toolbar-actions {
+    .toolbar-right {
       display: flex;
       gap: @spacing-sm;
-      
-      // 禁用按钮样式优化
-      /deep/ .el-button.is-disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+    }
+    
+    // 禁用按钮样式优化
+    /deep/ .el-button.is-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 

@@ -25,20 +25,20 @@
 
         <!-- 详细金额明细表格 -->
         <div class="amount-details-table">
-          <el-table :data="summary.details" border size="small" style="width: 100%">
-            <el-table-column prop="type" label="发票种类" width="150"></el-table-column>
-            <el-table-column prop="summary" label="发票摘要" width="150"></el-table-column>
-            <el-table-column prop="shouldAmount" label="应开票金额" width="130" align="right">
+          <el-table :data="summary.details" border style="width: 100%">
+            <el-table-column prop="type" label="发票种类" min-width="150"></el-table-column>
+            <el-table-column prop="summary" label="发票摘要" min-width="150"></el-table-column>
+            <el-table-column prop="shouldAmount" label="应开票金额" min-width="130" align="right">
               <template slot-scope="{ row }">
                 {{ formatAmount(row.shouldAmount) }}
               </template>
             </el-table-column>
-            <el-table-column prop="invoicedAmount" label="已开票金额" width="130" align="right">
+            <el-table-column prop="invoicedAmount" label="已开票金额" min-width="130" align="right">
               <template slot-scope="{ row }">
                 {{ formatAmount(row.invoicedAmount) }}
               </template>
             </el-table-column>
-            <el-table-column prop="remainingAmount" label="还可提交金额" width="130" align="right">
+            <el-table-column prop="remainingAmount" label="还可提交金额" min-width="130" align="right">
               <template slot-scope="{ row }">
                 {{ formatAmount(row.remainingAmount) }}
               </template>
@@ -476,7 +476,6 @@ export default {
     border-radius: @border-radius-base;
     padding: @spacing-lg;
     margin-bottom: @spacing-xl;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
     .amount-cards {
       display: flex;
@@ -522,12 +521,54 @@ export default {
       margin-top: @spacing-lg;
     }
   }
+  
+  // 表格样式统一
+  /deep/ .el-table {
+    border: none;
+    
+    &::before {
+      display: none;
+    }
+    
+    &::after {
+      display: none;
+    }
+    
+    th, td {
+      border-right: none;
+    }
+    
+    th.el-table__cell {
+      background: #fafafa;
+      color: @text-primary;
+      font-weight: 600;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    
+    .el-table__body tr {
+      &:hover > td {
+        background-color: #f5f7fa;
+      }
+    }
+    
+    .el-table__body td {
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .el-table__row--striped td {
+      background: #fafafa;
+    }
+    
+    .el-link {
+      font-size: 14px;
+      font-weight: normal;
+    }
+  }
 
   .invoice-applications {
     background: @bg-white;
     border-radius: @border-radius-base;
     padding: @spacing-lg;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
     .applications-header {
       display: flex;
