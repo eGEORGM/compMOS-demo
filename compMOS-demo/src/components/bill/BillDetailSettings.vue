@@ -20,9 +20,10 @@
               <el-checkbox label="legalEntity">法人实体</el-checkbox>
               <el-checkbox label="paymentAccount">支付账户</el-checkbox>
               <el-checkbox label="department">部门</el-checkbox>
+              <el-checkbox label="project">项目</el-checkbox>
             </el-checkbox-group>
             <div class="form-hint">
-              可选择0-4个维度，将按选择顺序进行多层级拆分（选择0个则不拆分）
+              可选择0-5个维度，将按选择顺序进行多层级拆分（选择0个则不拆分）
             </div>
           </el-form-item>
 
@@ -104,7 +105,8 @@ export default {
         businessLine: "业务线",
         legalEntity: "法人实体",
         paymentAccount: "支付账户",
-        department: "部门"
+        department: "部门",
+        project: "项目"
       }
     };
   },
@@ -150,8 +152,8 @@ export default {
     },
     
     async handleSave() {
-      if (this.form.dimensions.length > 4) {
-        this.$message.warning("最多只能选择4个拆分维度");
+      if (this.form.dimensions.length > 5) {
+        this.$message.warning("最多只能选择5个拆分维度");
         return;
       }
       

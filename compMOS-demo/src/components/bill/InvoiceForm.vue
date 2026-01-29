@@ -282,7 +282,7 @@ export default {
         const dimensionValueMap = new Map();
         
         rows.forEach(({ row, index }) => {
-          const dimensionValue = row.splitDimension1 || row.businessLine || row.legalEntity || '其他';
+          const dimensionValue = row.splitDimension1 || '其他';
           
           if (!dimensionValueMap.has(dimensionValue)) {
             // 记录该维度值首次出现的索引（相对于该发票种类组）
@@ -338,17 +338,32 @@ export default {
             }
             
             // 确保拆分维度字段
-            if (!newRow.splitDimension1 && newRow.businessLine) {
-              newRow.splitDimension1 = newRow.businessLine;
-            }
-            if (!newRow.splitDimension2 && newRow.legalEntity) {
-              newRow.splitDimension2 = newRow.legalEntity;
-            }
-            if (!newRow.businessLine && newRow.splitDimension1) {
-              newRow.businessLine = newRow.splitDimension1;
-            }
-            if (!newRow.legalEntity && newRow.splitDimension2) {
-              newRow.legalEntity = newRow.splitDimension2;
+            const dimensions = (this.splitConfig && this.splitConfig.dimensions) ? this.splitConfig.dimensions : [];
+            if (dimensions.length > 0) {
+              // 根据配置的拆分维度设置splitDimension字段
+              const dim1 = dimensions[0];
+              const dim2 = dimensions[1];
+              
+              if (dim1 && newRow[dim1]) {
+                newRow.splitDimension1 = newRow[dim1];
+              }
+              if (dim2 && newRow[dim2]) {
+                newRow.splitDimension2 = newRow[dim2];
+              }
+            } else {
+              // 兼容旧逻辑
+              if (!newRow.splitDimension1 && newRow.businessLine) {
+                newRow.splitDimension1 = newRow.businessLine;
+              }
+              if (!newRow.splitDimension2 && newRow.legalEntity) {
+                newRow.splitDimension2 = newRow.legalEntity;
+              }
+              if (!newRow.businessLine && newRow.splitDimension1) {
+                newRow.businessLine = newRow.splitDimension1;
+              }
+              if (!newRow.legalEntity && newRow.splitDimension2) {
+                newRow.legalEntity = newRow.splitDimension2;
+              }
             }
             
             // 处理抬头信息

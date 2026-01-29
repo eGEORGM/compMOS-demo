@@ -267,6 +267,9 @@ export default {
           case "department":
             key = order.department || "未知";
             break;
+          case "project":
+            key = order.project || "未知";
+            break;
           default:
             key = "未知";
         }

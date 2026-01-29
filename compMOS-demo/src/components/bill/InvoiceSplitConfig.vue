@@ -112,6 +112,7 @@ export default {
         { label: "法人实体", value: SPLIT_DIMENSION.LEGAL_ENTITY, disabled: false },
         { label: "支付账户", value: SPLIT_DIMENSION.PAYMENT_ACCOUNT, disabled: false },
         { label: "部门", value: SPLIT_DIMENSION.DEPARTMENT, disabled: false },
+        { label: "项目", value: SPLIT_DIMENSION.PROJECT, disabled: false },
         { label: "出行人", value: SPLIT_DIMENSION.TRAVELER, disabled: false },
         { label: "最原始订单号", value: SPLIT_DIMENSION.ORIGINAL_ORDER_NO, disabled: true }
       ],

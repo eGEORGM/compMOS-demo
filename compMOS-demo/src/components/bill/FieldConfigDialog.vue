@@ -154,6 +154,7 @@ export default {
         { label: "支付账户", value: "paymentAccount" },
         { label: "成本中心", value: "costCenter" },
         { label: "项目部门", value: "department" },
+        { label: "项目名称", value: "projectName" },
         { label: "费用类型", value: "expenseType" }
       ]
     };

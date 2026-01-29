@@ -90,6 +90,9 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         // 拆分维度字段（即使没有拆分，也保留字段以便表格显示）
         businessLine: "",
         legalEntity: "",
+        paymentAccount: "",
+        department: "",
+        project: "",
         splitDimension1: "",
         splitDimension2: "",
         // 抬头信息（扁平化）
@@ -118,6 +121,9 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
+        paymentAccount: "",
+        department: "",
+        project: "",
         splitDimension1: "",
         splitDimension2: "",
         // 抬头信息（扁平化）
@@ -146,6 +152,9 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
+        paymentAccount: "",
+        department: "",
+        project: "",
         splitDimension1: "",
         splitDimension2: "",
         // 抬头信息（扁平化）
@@ -174,6 +183,9 @@ export function generateInvoiceTable(billNo, splitDimensions = [], orders = []) 
         // 拆分维度字段
         businessLine: "",
         legalEntity: "",
+        paymentAccount: "",
+        department: "",
+        project: "",
         splitDimension1: "",
         splitDimension2: "",
         // 抬头信息（扁平化）
@@ -210,6 +222,8 @@ function getDimensionValue(order, dimension) {
       return order.paymentAccount || "默认支付账户";
     case SPLIT_DIMENSION.DEPARTMENT:
       return order.department || "默认部门";
+    case SPLIT_DIMENSION.PROJECT:
+      return order.project || "默认项目";
     case SPLIT_DIMENSION.TRAVELER:
       return order.travelerName || "未知出行人";
     default:
@@ -339,6 +353,9 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
         // 拆分维度字段（即使没有拆分，也保留字段以便表格显示）
         businessLine: "",
         legalEntity: "",
+        paymentAccount: "",
+        department: "",
+        project: "",
         splitDimension1: "",
         splitDimension2: "",
         // 抬头信息（扁平化）
@@ -397,13 +414,14 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
               unit: "/",
               receiverEmail: "",
               remark: "",
-              // 拆分维度字段
-              businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : "",
-              legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : "",
-              paymentAccount: firstDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? firstValue : "",
-              department: firstDimension === SPLIT_DIMENSION.DEPARTMENT ? firstValue : "",
-              splitDimension1: firstValue,
-              splitDimension2: "",
+                // 拆分维度字段
+                businessLine: firstDimension === SPLIT_DIMENSION.BUSINESS_LINE ? firstValue : "",
+                legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : "",
+                paymentAccount: firstDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? firstValue : "",
+                department: firstDimension === SPLIT_DIMENSION.DEPARTMENT ? firstValue : "",
+                project: firstDimension === SPLIT_DIMENSION.PROJECT ? firstValue : "",
+                splitDimension1: firstValue,
+                splitDimension2: "",
               // 抬头信息（扁平化，初始为空，用户需要填写）
               titleId: "",
               titleName: "",
@@ -459,6 +477,8 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
                               (secondDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? secondValue : ""),
                 department: firstDimension === SPLIT_DIMENSION.DEPARTMENT ? firstValue : 
                            (secondDimension === SPLIT_DIMENSION.DEPARTMENT ? secondValue : ""),
+                project: firstDimension === SPLIT_DIMENSION.PROJECT ? firstValue : 
+                        (secondDimension === SPLIT_DIMENSION.PROJECT ? secondValue : ""),
                 splitDimension1: firstValue,
                 splitDimension2: secondValue,
                 // 抬头信息（扁平化，初始为空，用户需要填写）
@@ -482,7 +502,8 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
           [SPLIT_DIMENSION.BUSINESS_LINE]: ["机票", "酒店", "火车票", "用车"],
           [SPLIT_DIMENSION.LEGAL_ENTITY]: ["北京分公司", "上海分公司", "深圳分公司"],
           [SPLIT_DIMENSION.PAYMENT_ACCOUNT]: ["账户A", "账户B", "账户C"],
-          [SPLIT_DIMENSION.DEPARTMENT]: ["研发中心", "销售中心", "市场中心"]
+          [SPLIT_DIMENSION.DEPARTMENT]: ["研发中心", "销售中心", "市场中心"],
+          [SPLIT_DIMENSION.PROJECT]: ["项目A - 企业出行管理系统", "项目B - 商旅预订平台", "项目C - 差旅费用管理"]
         };
         
         const firstValues = dimensionValues[firstDimension] || ["其他"];
@@ -508,6 +529,7 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
               legalEntity: firstDimension === SPLIT_DIMENSION.LEGAL_ENTITY ? firstValue : "",
               paymentAccount: firstDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? firstValue : "",
               department: firstDimension === SPLIT_DIMENSION.DEPARTMENT ? firstValue : "",
+              project: firstDimension === SPLIT_DIMENSION.PROJECT ? firstValue : "",
               splitDimension1: firstValue,
               splitDimension2: "",
               titleId: "",
@@ -548,6 +570,8 @@ function generateSplitInvoiceTable(billNo, dimensions, orders = []) {
                               (secondDimension === SPLIT_DIMENSION.PAYMENT_ACCOUNT ? secondValue : ""),
                 department: firstDimension === SPLIT_DIMENSION.DEPARTMENT ? firstValue : 
                            (secondDimension === SPLIT_DIMENSION.DEPARTMENT ? secondValue : ""),
+                project: firstDimension === SPLIT_DIMENSION.PROJECT ? firstValue : 
+                        (secondDimension === SPLIT_DIMENSION.PROJECT ? secondValue : ""),
                 splitDimension1: firstValue,
                 splitDimension2: secondValue,
                 titleId: "",

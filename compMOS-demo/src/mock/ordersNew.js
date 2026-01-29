@@ -189,6 +189,11 @@ export function filterOrders(orders, filters) {
     filtered = filtered.filter(o => o.legalEntity === filters.legalEntity);
   }
 
+  // 按项目筛选
+  if (filters.project) {
+    filtered = filtered.filter(o => o.project === filters.project);
+  }
+
   // 按订单号批量查询
   if (filters.orderNos && filters.orderNos.length > 0) {
     filtered = filtered.filter(o => filters.orderNos.includes(o.orderNo));
