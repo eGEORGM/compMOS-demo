@@ -26,7 +26,7 @@ export const BILL_STATUS_NAMES = {
 export const BILL_STATUS_COLORS = {
   [BILL_STATUS.PENDING_CONFIRM]: "warning", // 橙色
   [BILL_STATUS.ADJUSTING]: "danger", // 红色
-  [BILL_STATUS.PENDING_INVOICE]: "", // 默认色
+  [BILL_STATUS.PENDING_INVOICE]: "default", // 灰色
   [BILL_STATUS.INVOICING]: "primary", // 蓝色
   [BILL_STATUS.PENDING_PAYMENT]: "info", // 灰蓝色
   [BILL_STATUS.SETTLED]: "success" // 绿色
@@ -317,5 +317,32 @@ export const INVOICE_APPLICATION_STATUS_COLORS = {
   [INVOICE_APPLICATION_STATUS.PENDING]: "warning",
   [INVOICE_APPLICATION_STATUS.SUCCESS]: "success",
   [INVOICE_APPLICATION_STATUS.FAILED]: "danger"
+};
+
+// 开票记录状态（用于开票申请记录表格）
+export const INVOICE_RECORD_STATUS = {
+  PENDING: "pending", // 待处理
+  PROCESSING: "processing", // 处理中
+  COMPLETED: "completed", // 已开票
+  FAILED: "failed", // 失败
+  FLUSHED: "flushed" // 已红冲
+};
+
+// 开票记录状态名称映射
+export const INVOICE_RECORD_STATUS_NAMES = {
+  [INVOICE_RECORD_STATUS.PENDING]: "待处理",
+  [INVOICE_RECORD_STATUS.PROCESSING]: "处理中",
+  [INVOICE_RECORD_STATUS.COMPLETED]: "已开票",
+  [INVOICE_RECORD_STATUS.FAILED]: "失败",
+  [INVOICE_RECORD_STATUS.FLUSHED]: "已红冲"
+};
+
+// 开票记录状态颜色映射
+export const INVOICE_RECORD_STATUS_COLORS = {
+  [INVOICE_RECORD_STATUS.PENDING]: "warning", // 橙色
+  [INVOICE_RECORD_STATUS.PROCESSING]: "primary", // 蓝色
+  [INVOICE_RECORD_STATUS.COMPLETED]: "success", // 绿色
+  [INVOICE_RECORD_STATUS.FAILED]: "danger", // 红色
+  [INVOICE_RECORD_STATUS.FLUSHED]: "warning" // 橙色
 };
 

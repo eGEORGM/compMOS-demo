@@ -65,9 +65,11 @@
       
       <el-table-column prop="status" label="状态" width="100">
         <template slot-scope="{ row }">
-          <el-tag size="small" :type="getStatusType(row.status || (row.isFlushed ? 'flushed' : 'completed'))">
-            {{ getStatusName(row.status || (row.isFlushed ? 'flushed' : 'completed')) }}
-          </el-tag>
+          <StatusTag 
+            type="invoice-status" 
+            :status="row.status || (row.isFlushed ? 'flushed' : 'completed')"
+            size="small"
+          />
         </template>
       </el-table-column>
       
@@ -327,9 +329,13 @@
 import { formatAmount, formatDate } from "@/utils/format";
 import { validateTaxNumber } from "@/utils/validators";
 import { showSuccess, showWarning, handleApiError } from "@/utils/errorHandler";
+import StatusTag from "@/components/common/StatusTag.vue";
 
 export default {
   name: "InvoiceRecordTable",
+  components: {
+    StatusTag
+  },
   props: {
     records: {
       type: Array,
