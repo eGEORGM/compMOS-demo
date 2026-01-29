@@ -1,9 +1,9 @@
 <template>
   <div class="invoice-form">
     <!-- 分组提示 -->
-    <div v-if="hasGrouping" class="info-banner">
-      <div class="info-icon"></div>
-      <div class="info-content">开票信息已按 <strong>{{ groupingDescription }}</strong> 拆分展示</div>
+    <div v-if="hasGrouping" class="group-hint">
+      <i class="el-icon-info"></i>
+      <span>开票信息已按 <strong>{{ groupingDescription }}</strong> 拆分展示</span>
     </div>
 
     <el-table
@@ -555,10 +555,25 @@ export default {
 @import "@/assets/styles/variables.less";
 
 .invoice-form {
-  .info-banner {
+  .group-hint {
+    display: flex;
+    align-items: center;
+    gap: @spacing-sm;
+    margin-bottom: @spacing-md;
+    padding: @spacing-md;
+    background: @bg-light;
+    border-radius: @border-radius-base;
+    color: @text-secondary;
+    font-size: @font-size-base;
+    
+    i {
+      color: @primary-color;
+      font-size: @font-size-xl;
+      flex-shrink: 0;
+    }
+    
     strong {
       color: @primary-color;
-      font-weight: 600;
     }
   }
   

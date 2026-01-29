@@ -125,7 +125,7 @@
     >
       <div class="dialog-content">
         <p class="warning-message">
-          <i class="el-icon-warning"></i>
+          <i class="el-icon-info"></i>
           确认要对以下发票进行红冲操作吗？
         </p>
         <div v-if="currentRecord" class="record-info">
@@ -152,10 +152,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <div class="info-banner">
-          <div class="info-icon"></div>
-          <div class="info-content">红冲后该发票将作废，可以进行换开操作。</div>
-        </div>
+        <p class="hint-message">
+          <i class="el-icon-info"></i>
+          红冲后该发票将作废，可以进行换开操作。
+        </p>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="redFlushDialogVisible = false">取消</el-button>
@@ -249,10 +249,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <div class="info-banner">
-          <div class="info-icon"></div>
-          <div class="info-content">部分红冲后，剩余金额仍可正常使用。</div>
-        </div>
+        <p class="hint-message">
+          <i class="el-icon-info"></i>
+          部分红冲后，剩余金额仍可正常使用。
+        </p>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="partialRedFlushDialogVisible = false">取消</el-button>
@@ -310,10 +310,10 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <div class="info-banner">
-          <div class="info-icon"></div>
-          <div class="info-content">红冲后该发票将作废，可以进行换开操作。</div>
-        </div>
+        <p class="hint-message">
+          <i class="el-icon-info"></i>
+          红冲后该发票将作废，可以进行换开操作。
+        </p>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="itineraryRedFlushDialogVisible = false">取消</el-button>
@@ -788,25 +788,16 @@ export default {
       align-items: center;
       gap: @spacing-sm;
       padding: @spacing-md;
+      background: @bg-light;
       border-radius: @border-radius-base;
-      margin-bottom: @spacing-lg;
+      color: @text-secondary;
       font-size: @font-size-base;
+      margin-bottom: @spacing-lg;
 
       i {
+        color: @primary-color;
         font-size: @font-size-xl;
       }
-    }
-
-    .warning-message {
-      background: #fef0f0;
-      border: 1px solid #fde2e2;
-      color: @danger-color;
-    }
-
-    .info-message {
-      background: @bg-light;
-      border: 1px solid @border-base;
-      color: @primary-color;
     }
 
     .record-info {
@@ -832,6 +823,22 @@ export default {
       }
     }
 
+    .hint-message {
+      display: flex;
+      align-items: center;
+      gap: @spacing-sm;
+      padding: @spacing-md;
+      background: @bg-light;
+      border-radius: @border-radius-base;
+      color: @text-secondary;
+      font-size: @font-size-base;
+      margin: @spacing-md 0 0;
+
+      i {
+        color: @primary-color;
+        font-size: @font-size-xl;
+      }
+    }
   }
 }
 </style>

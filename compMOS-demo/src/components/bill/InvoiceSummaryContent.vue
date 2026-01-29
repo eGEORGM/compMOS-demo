@@ -557,13 +557,13 @@ export default {
       gap: @spacing-sm;
       padding: @spacing-md;
       background: @bg-light;
-      border: 1px solid @border-base;
       border-radius: @border-radius-base;
-      color: @primary-color;
+      color: @text-secondary;
       font-size: @font-size-base;
       margin-bottom: @spacing-lg;
 
       i {
+        color: @primary-color;
         font-size: @font-size-xl;
       }
     }

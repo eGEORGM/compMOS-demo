@@ -1,7 +1,7 @@
 <template>
   <div class="error-message-container">
     <div class="error-content">
-      <i class="el-icon-warning error-icon"></i>
+        <i class="el-icon-info error-icon"></i>
       <div class="error-details">
         <p class="error-title">{{ title }}</p>
         <p v-if="message" class="error-message">{{ message }}</p>
@@ -56,37 +56,35 @@ export default {
 @import "~@/assets/styles/variables.less";
 
 .error-message-container {
-  padding: @spacing-xl;
-  background-color: lighten(@danger-color, 45%);
-  border: 1px solid lighten(@danger-color, 30%);
-  border-radius: @radius-md;
+  padding: @spacing-md;
+  background-color: @bg-light;
+  border-radius: @border-radius-base;
   margin: @spacing-md 0;
 
   .error-content {
     display: flex;
-    align-items: flex-start;
-    gap: @spacing-md;
+    align-items: center;
+    gap: @spacing-sm;
 
     .error-icon {
-      font-size: 24px;
-      color: @danger-color;
+      font-size: @font-size-xl;
+      color: @primary-color;
       flex-shrink: 0;
-      margin-top: 2px;
     }
 
     .error-details {
       flex: 1;
 
       .error-title {
-        font-size: @font-size-lg;
-        font-weight: 600;
-        color: @danger-color;
-        margin: 0 0 @spacing-xs;
+        font-size: @font-size-base;
+        font-weight: normal;
+        color: @text-secondary;
+        margin: 0;
       }
 
       .error-message {
         font-size: @font-size-base;
-        color: @text-regular;
+        color: @text-secondary;
         margin: 0;
         line-height: 1.6;
       }

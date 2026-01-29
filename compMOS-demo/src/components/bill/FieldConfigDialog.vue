@@ -70,7 +70,7 @@
               @change="handlePdfFieldChange"
             ></el-transfer>
             <div v-if="localConfig.pdfExport.length > 20" class="error-hint">
-              <i class="el-icon-warning"></i>
+              <i class="el-icon-info"></i>
               PDF字段数量超过限制，请调整至20个以内
             </div>
           </div>
@@ -285,15 +285,16 @@ export default {
       align-items: center;
       gap: @spacing-sm;
       margin-top: @spacing-md;
-      padding: @spacing-sm @spacing-md;
-      background: #fef0f0;
-      border: 1px solid #fde2e2;
+      padding: @spacing-md;
+      background: @bg-light;
       border-radius: @border-radius-base;
-      color: @danger-color;
-      font-size: @font-size-sm;
+      color: @text-secondary;
+      font-size: @font-size-base;
+      margin-bottom: @spacing-lg;
 
       i {
-        font-size: @font-size-lg;
+        color: @primary-color;
+        font-size: @font-size-xl;
       }
     }
   }

@@ -62,12 +62,13 @@
                 <span>{{ getDimensionLabel(form.dimension2) }}</span>
               </template>
             </div>
-            <div class="info-banner" style="margin-top: 12px;">
-              <div class="info-icon"></div>
-              <div class="info-content">
-                选择拆分维度后，账单汇总将按照所选维度进行多层级展示
-              </div>
-            </div>
+            <p class="preview-hint">
+              开票信息将按照 <strong>{{ getDimensionLabel(form.dimension1) }}</strong>
+              <template v-if="form.dimension2">
+                → <strong>{{ getDimensionLabel(form.dimension2) }}</strong>
+              </template>
+              进行分组展示
+            </p>
           </div>
         </div>
       </el-form>
@@ -217,11 +218,12 @@ export default {
     padding: @spacing-md;
     background: @bg-light;
     border-radius: @border-radius-base;
-    color: @primary-color;
+    color: @text-secondary;
     font-size: @font-size-base;
     margin-bottom: @spacing-lg;
 
     i {
+      color: @primary-color;
       font-size: @font-size-xl;
     }
   }
@@ -258,6 +260,19 @@ export default {
         }
       }
 
+      .preview-hint {
+        margin: @spacing-sm 0 0;
+        padding-top: @spacing-sm;
+        border-top: 1px dashed #B3C5FF;
+        font-size: @font-size-sm;
+        color: @text-secondary;
+        line-height: 1.6;
+
+        strong {
+          color: @primary-color;
+          font-weight: 600;
+        }
+      }
     }
   }
 }
